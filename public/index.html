@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kawan Keys</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔑</text></svg>">
+<style>
+:root{--bg:#0d0f14;--panel:#151922;--panel2:#1b2030;--line:#262c3d;--text:#e8ebf4;--muted:#8a93ab;--accent:#7c5cff;--ok:#2ecc8f;--warn:#f5b84a;--bad:#ff5d6c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+.wrap{max-width:1180px;margin:0 auto;padding:20px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{font-size:20px;margin:0}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);font-weight:600}
+.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.btn.sm{padding:4px 9px;font-size:12px}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat b{display:block;font-size:24px}
+.stat span{color:var(--muted);font-size:12px}
+.toolbar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:180px}
+.toolbar select{width:auto}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:12px}
+td.key{font-family:ui-monospace,Menlo,Consolas,monospace;cursor:pointer}
+td.key:hover{color:var(--accent)}
+td.note{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.tag.active{background:#2ecc8f22;color:var(--ok)}.tag.expired{background:#f5b84a22;color:var(--warn)}.tag.revoked{background:#ff5d6c22;color:var(--bad)}
+.tag.admin{background:#7c5cff33;color:#b4a2ff;margin-left:6px}
+.actions{display:flex;gap:6px}
+.empty{text-align:center;color:var(--muted);padding:30px}
+.login{max-width:340px;margin:12vh auto}
+.login h1{margin-bottom:14px}
+.login input{margin-bottom:10px}
+.err{color:var(--bad);min-height:18px;margin-bottom:6px;font-size:13px}
+.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal .card{width:100%;max-width:460px;max-height:90vh;overflow:auto}
+.modal h2{margin:0 0 14px;font-size:17px}
+label{display:block;margin:10px 0 4px;color:var(--muted);font-size:12px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.check{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--text);font-size:13px}
+.check input{width:auto}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+textarea{width:100%;min-height:140px;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:.2s;z-index:20}
+#toast.show{opacity:1}
+@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div id="loginView" class="login card hidden">
+  <h1>🔑 Kawan Keys</h1>
+  <input id="pw" type="password" placeholder="Senha do admin" autocomplete="current-password">
+  <div class="err" id="loginErr"></div>
+  <button class="btn primary" style="width:100%" id="loginBtn">Entrar</button>
+</div>
+
+<div id="appView" class="wrap hidden">
+  <header>
+    <h1>🔑 Kawan Keys</h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn primary" id="newBtn">+ Nova key</button>
+      <button class="btn" id="logoutBtn">Sair</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="card stat"><b id="sTotal">0</b><span>Total</span></div>
+    <div class="card stat"><b id="sActive" style="color:var(--ok)">0</b><span>Ativas</span></div>
+    <div class="card stat"><b id="sExpired" style="color:var(--warn)">0</b><span>Expiradas</span></div>
+    <div class="card stat"><b id="sRevoked" style="color:var(--bad)">0</b><span>Revogadas</span></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <input id="search" placeholder="Buscar por key ou observação…">
+      <select id="filter">
+        <option value="all">Todas</option><option value="active">Ativas</option>
+        <option value="expired">Expiradas</option><option value="revoked">Revogadas</option>
+      </select>
+      <button class="btn" id="exportBtn">Copiar ativas</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Key</th><th>Status</th><th>Vence</th><th>HWID</th><th>Usos</th><th>Obs.</th><th>Ações</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty hidden" id="empty">Nenhuma key encontrada.</div>
+    </div>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let keys = [];
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+async function api(path, method = 'GET', body) {
+  const r = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== '/api/login') { showLogin(); throw new Error('Sessão expirada'); }
+  if (!r.ok) throw new Error(data.error || 'Erro');
+  return data;
+}
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copiado!'); }
+  catch (_) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); toast('Copiado!'); }
+}
+function fmtDate(sec) { return new Date(sec * 1000).toLocaleDateString('pt-BR') + ' ' + new Date(sec * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+function fmtExpiry(k) {
+  if (!k.expiresAt) return '♾️ Vitalícia';
+  const left = k.expiresAt - Date.now() / 1000;
+  const d = fmtDate(k.expiresAt);
+  if (left <= 0) return d;
+  const days = Math.floor(left / 86400), h = Math.floor((left % 86400) / 3600);
+  return d + ' (' + (days > 0 ? days + 'd ' : '') + h + 'h)';
+}
+function el(tag, props = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e[k] = v;
+  }
+  for (const c of kids) if (c != null) e.append(c);
+  return e;
+}
+
+// ---------- Login ----------
+function showLogin() { $('#appView').classList.add('hidden'); $('#loginView').classList.remove('hidden'); $('#pw').focus(); }
+async function doLogin() {
+  $('#loginErr').textContent = '';
+  try { await api('/api/login', 'POST', { password: $('#pw').value }); $('#pw').value = ''; await boot(); }
+  catch (e) { $('#loginErr').textContent = e.message; }
+}
+$('#loginBtn').onclick = doLogin;
+$('#pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+$('#logoutBtn').onclick = async () => { await api('/api/logout', 'POST', {}).catch(() => {}); showLogin(); };
+
+// ---------- Lista ----------
+async function load() {
+  const d = await api('/api/admin/keys'); keys = d.keys; render();
+}
+function render() {
+  $('#sTotal').textContent = keys.length;
+  $('#sActive').textContent = keys.filter((k) => k.status === 'active').length;
+  $('#sExpired').textContent = keys.filter((k) => k.status === 'expired').length;
+  $('#sRevoked').textContent = keys.filter((k) => k.status === 'revoked').length;
+  const q = $('#search').value.trim().toLowerCase(), f = $('#filter').value;
+  const list = keys.filter((k) => (f === 'all' || k.status === f) && (!q || k.key.toLowerCase().includes(q) || k.note.toLowerCase().includes(q)));
+  const tb = $('#rows'); tb.replaceChildren();
+  $('#empty').classList.toggle('hidden', list.length > 0);
+  const label = { active: 'Ativa', expired: 'Expirada', revoked: 'Revogada' };
+  for (const k of list) {
+    const keyTd = el('td', { class: 'key', title: 'Clique para copiar', onclick: () => copy(k.key) }, k.key);
+    const stTd = el('td', {}, el('span', { class: 'tag ' + k.status }, label[k.status]));
+    if (k.admin) stTd.append(el('span', { class: 'tag admin' }, 'ADMIN'));
+    const hw = k.hwidLock ? (k.hwid ? '🔒 ' + k.hwid.slice(0, 8) + '…' : '🔓 livre') : '—';
+    const act = el('div', { class: 'actions' },
+      el('button', { class: 'btn sm', onclick: () => renewModal(k) }, 'Renovar'),
+      k.revoked
+        ? el('button', { class: 'btn sm', onclick: () => doAction(k, 'restore') }, 'Restaurar')
+        : el('button', { class: 'btn sm danger', onclick: () => doAction(k, 'revoke') }, 'Revogar'),
+      el('button', { class: 'btn sm', onclick: () => noteModal(k) }, 'Obs.'),
+      k.hwid ? el('button', { class: 'btn sm', onclick: () => doAction(k, 'reset-hwid', 'HWID resetado') }, 'Reset HWID') : null,
+      el('button', { class: 'btn sm danger', onclick: () => delKey(k) }, 'Apagar'));
+    tb.append(el('tr', {}, keyTd, stTd, el('td', {}, fmtExpiry(k)), el('td', {}, hw), el('td', {}, String(k.uses)), el('td', { class: 'note', title: k.note }, k.note || '—'), el('td', {}, act)));
+  }
+}
+$('#search').oninput = render; $('#filter').onchange = render;
+$('#exportBtn').onclick = () => { const a = keys.filter((k) => k.status === 'active').map((k) => k.key); copy(a.join('\n')); };
+
+async function doAction(k, action, msg) {
+  try { await api('/api/admin/keys/' + k.id + '/' + action, 'POST', {}); toast(msg || 'Feito'); await load(); } catch (e) { toast(e.message); }
+}
+async function delKey(k) {
+  if (!confirm('Apagar a key ' + k.key + ' de vez? Isso não pode ser desfeito.')) return;
+  try { await api('/api/admin/keys/' + k.id, 'DELETE'); toast('Key apagada'); await load(); } catch (e) { toast(e.message); }
+}
+
+// ---------- Modais ----------
+function closeModal() { $('#modalRoot').replaceChildren(); }
+function modal(title, body, buttons) {
+  const foot = el('div', { class: 'foot' }, ...buttons);
+  const card = el('div', { class: 'card' }, el('h2', {}, title), body, foot);
+  const m = el('div', { class: 'modal', onclick: (e) => { if (e.target === m) closeModal(); } }, card);
+  $('#modalRoot').replaceChildren(m);
+}
+const cancelBtn = () => el('button', { class: 'btn', onclick: closeModal }, 'Cancelar');
+
+function durationFields() {
+  const sel = el('select', {});
+  [['1', '1 dia'], ['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias'], ['365', '1 ano'], ['custom', 'Personalizado…'], ['lifetime', 'Vitalícia']]
+    .forEach(([v, t]) => sel.append(el('option', { value: v }, t)));
+  sel.value = '30';
+  const custom = el('input', { type: 'number', min: 1, placeholder: 'Dias', class: 'hidden' });
+  sel.onchange = () => custom.classList.toggle('hidden', sel.value !== 'custom');
+  const get = () => sel.value === 'lifetime' ? { lifetime: true } : { days: sel.value === 'custom' ? Number(custom.value) : Number(sel.value) };
+  return { nodes: [sel, custom], get };
+}
+
+function newModal() {
+  const dur = durationFields();
+  const count = el('input', { type: 'number', min: 1, max: 100, value: 1 });
+  const prefix = el('input', { value: 'KW', maxLength: 10 });
+  const note = el('input', { placeholder: 'Ex.: João – Discord', maxLength: 120 });
+  const admin = el('input', { type: 'checkbox' });
+  const hw = el('input', { type: 'checkbox' });
+  const body = el('div', {},
+    el('label', {}, 'Duração'), ...dur.nodes,
+    el('div', { class: 'row' }, el('div', {}, el('label', {}, 'Quantidade'), count), el('div', {}, el('label', {}, 'Prefixo'), prefix)),
+    el('label', {}, 'Observação'), note,
+    el('label', { class: 'check' }, admin, 'Key ADMIN'),
+    el('label', { class: 'check' }, hw, 'Travar no 1º dispositivo (HWID)'));
+  modal('Nova key', body, [cancelBtn(), el('button', { class: 'btn primary', onclick: async () => {
+    const d = dur.get();
+    try {
+      const r = await api('/api/admin/keys', 'POST', { count: Number(count.value), prefix: prefix.value, note: note.value, admin: admin.checked, hwidLock: hw.checked,
+        duration: d.lifetime ? 'lifetime' : 'days', days: d.days });
+      await load(); showCreated(r.created);
+    } catch (e) { toast(e.message); }
+  } }, 'Gerar')]);
+}
+function showCreated(list) {
+  const ta = el('textarea', { readOnly: true }); ta.value = list.map((k) => k.key).join('\n');
+  modal(list.length + (list.length === 1 ? ' key criada' : ' keys criadas'), ta,
+    [el('button', { class: 'btn', onclick: closeModal }, 'Fechar'), el('button', { class: 'btn primary', onclick: () => copy(ta.value) }, 'Copiar')]);
+}
+function renewModal(k) {
+  const dur = durationFields();
+  const info = el('div', { style: 'color:var(--muted);font-size:13px' }, k.key + ' — ' + fmtExpiry(k));
+  const mode = el('select', {}, el('option', { value: 'add' }, 'Somar ao tempo atual'), el('option', { value: 'set' }, 'Definir a partir de agora'));
+  const body = el('div', {}, info, el('label', {}, 'Quanto tempo'), ...dur.nodes, el('label', {}, 'Modo'), mode);
+  modal('Renovar key', body, [cancelBtn(), el('button', { class: 'btn primary', onclick: async () => {
+    const d = dur.get();
+    try {
+      await api('/api/admin/keys/' + k.id + '/' + (mode.value === 'set' ? 'expiry' : 'renew'), 'POST', d);
+      if (k.revoked) await api('/api/admin/keys/' + k.id + '/restore', 'POST', {});
+      closeModal(); toast('Key renovada'); await load();
+    } catch (e) { toast(e.message); }
+  } }, 'Renovar')]);
+}
+function noteModal(k) {
+  const note = el('input', { value: k.note, maxLength: 120 });
+  modal('Observação', el('div', {}, el('label', {}, k.key), note), [cancelBtn(), el('button', { class: 'btn primary', onclick: async () => {
+    try { await api('/api/admin/keys/' + k.id + '/note', 'POST', { note: note.value }); closeModal(); await load(); } catch (e) { toast(e.message); }
+  } }, 'Salvar')]);
+}
+$('#newBtn').onclick = newModal;
+
+// ---------- Início ----------
+async function boot() {
+  try { await load(); $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden'); }
+  catch (_) { showLogin(); }
+}
+boot();
+setInterval(() => { if (!$('#appView').classList.contains('hidden') && !$('#modalRoot').children.length) load().catch(() => {}); }, 30000);
+</script>
+</body>
+</html>

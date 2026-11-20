@@ -1,0 +1,9 @@
+{
+  "name": "kawan-keys",
+  "version": "1.0.0",
+  "description": "Painel de gerenciamento de keys (criar, renovar, revogar, apagar) com API de validação",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
