@@ -239,7 +239,9 @@ local WIN_W, WIN_H, SIDE_W, TOP_H = 700, 470, 172, 46
 local function refreshScale()
     local cam = workspace.CurrentCamera
     local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
-    uiScale.Scale = math.min(1, vs.X / (WIN_W + 60), vs.Y / (WIN_H + 60)) * userScale
+    local mobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+    local padX, padY = mobile and 20 or 60, mobile and 24 or 60
+    uiScale.Scale = math.min(1, vs.X / (WIN_W + padX), vs.Y / (WIN_H + padY)) * userScale
 end
 refreshScale()
 if workspace.CurrentCamera then
@@ -694,6 +696,148 @@ do
     UIS.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
+        end
+    end)
+end
+
+--------------------------------------------------------------------
+-- KAWAN • MOBILE + MINIMIZAR  (cole logo ACIMA do bloco "Páginas, sub-abas, cards")
+-- Tudo fica dentro de do ... end para não gastar variáveis locais (limite de 200 do Lua)
+--------------------------------------------------------------------
+do
+    local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+    local minimized = false
+    local BUBBLE_PX = 52                       -- tamanho da bolha em pixels (tamanho real na tela)
+
+    ----------------------------------------------------------------
+    -- 2) Botões de topo maiores no celular + botão de minimizar
+    ----------------------------------------------------------------
+    local bs = isMobile and 32 or 26
+    closeBtn.Size = UDim2.fromOffset(bs, bs)
+    closeBtn.Position = UDim2.new(1, -(bs + 10), 0.5, -bs / 2)
+
+    local minBtn = new("TextButton", {
+        Name = "MinBtn", Size = UDim2.fromOffset(bs, bs),
+        Position = UDim2.new(1, -(bs * 2 + 16), 0.5, -bs / 2),
+        Text = "−", TextColor3 = C.muted, TextSize = 18, Font = Enum.Font.GothamBold,
+        AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 5,
+    }, topBar)
+    bg(minBtn, "BackgroundColor3", "card")
+    corner(minBtn, 6)
+    minBtn.MouseEnter:Connect(function() tween(minBtn, 0.12, {TextColor3 = accent}) end)
+    minBtn.MouseLeave:Connect(function() tween(minBtn, 0.12, {TextColor3 = C.muted}) end)
+
+    -- as abas de topo (criadas depois) não podem ficar por baixo dos botões
+    local reserve = bs * 2 + 26
+    topBar.ChildAdded:Connect(function(c)
+        if c:IsA("Frame") and c.Size.X.Offset == -50 then
+            c.Size = UDim2.new(1, -reserve, 1, 0)
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- 3) Bolha flutuante (abre o menu; no celular substitui a tecla RightShift)
+    ----------------------------------------------------------------
+    local bubble = new("TextButton", {
+        Name = "KawanBubble", Position = UDim2.fromOffset(14, 120),
+        Text = "K", Font = Enum.Font.GothamBlack, AutoButtonColor = false,
+        BorderSizePixel = 0, Visible = false, ZIndex = 60,
+    }, gui)
+    bg(bubble, "BackgroundColor3", "window")
+    track(bubble, "TextColor3")
+    track(stroke(bubble, accent, 2, 0.1), "Color")
+    new("UICorner", {CornerRadius = UDim.new(1, 0)}, bubble)
+
+    -- mantém a bolha com o mesmo tamanho real em qualquer tela
+    local function fitBubble()
+        local s = math.max(uiScale.Scale, 0.05)
+        local px = BUBBLE_PX / s
+        bubble.Size = UDim2.fromOffset(px, px)
+        bubble.TextSize = math.clamp(22 / s, 14, 80)
+    end
+    uiScale:GetPropertyChangedSignal("Scale"):Connect(fitBubble)
+    fitBubble()
+
+    local function clampBubble()
+        local s = math.max(uiScale.Scale, 0.05)
+        local vs = gui.AbsoluteSize / s
+        local sz = BUBBLE_PX / s
+        local p = bubble.Position
+        bubble.Position = UDim2.fromOffset(
+            math.clamp(p.X.Offset, 4, math.max(4, vs.X - sz - 4)),
+            math.clamp(p.Y.Offset, 4, math.max(4, vs.Y - sz - 4)))
+    end
+
+    local function updateBubble()
+        bubble.Visible = unlocked and not main.Visible and (minimized or isMobile)
+        if bubble.Visible then clampBubble() end
+    end
+
+    ----------------------------------------------------------------
+    -- 4) Minimizar / restaurar
+    ----------------------------------------------------------------
+    local function minimize()
+        if not main.Visible or minimized then return end
+        minimized = true
+        playClick()
+        tween(main, 0.2, {GroupTransparency = 1})
+        tween(winScale, 0.2, {Scale = 0.9})
+        task.delay(Settings.anim and (0.22 / Settings.speed) or 0, function()
+            if minimized then main.Visible = false end
+            updateBubble()
+        end)
+    end
+
+    local function restore()
+        if main.Visible then return end
+        playClick()
+        minimized = false
+        main.Position = UDim2.new(0.5, 0, 0.5, 0)
+        winScale.Scale = 0.94
+        main.GroupTransparency = 1
+        main.Visible = true
+        if Settings.xmasRestart then pcall(Settings.xmasRestart) end
+        tween(main, 0.25, {GroupTransparency = baseGT})
+        tween(winScale, 0.25, {Scale = 1}, Enum.EasingStyle.Back)
+        updateBubble()
+    end
+
+    minBtn.MouseButton1Click:Connect(minimize)
+
+    main:GetPropertyChangedSignal("Visible"):Connect(function()
+        if main.Visible then minimized = false end
+        updateBubble()
+    end)
+    updateBubble()
+
+    ----------------------------------------------------------------
+    -- 5) Bolha arrastável (arrastar move; toque curto abre o menu)
+    ----------------------------------------------------------------
+    local dragging, moved, startIn, startPos = false, false, nil, nil
+    bubble.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, moved = true, false
+            startIn, startPos = input.Position, bubble.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            local d = (input.Position - startIn) / math.max(uiScale.Scale, 0.05)
+            if d.Magnitude > 6 then moved = true end
+            if moved then
+                bubble.Position = UDim2.fromOffset(startPos.X.Offset + d.X, startPos.Y.Offset + d.Y)
+            end
+        end
+    end)
+    UIS.InputEnded:Connect(function(input)
+        if not dragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            if moved then clampBubble() else restore() end
         end
     end)
 end
@@ -1310,63 +1454,6 @@ do
     perf:Note("Desliga sombras e reduz a qualidade gráfica para ganhar FPS.")
 end
 
--- Controle de tempo (experiência própria; Time Stop exige RemoteEvent + Script no servidor)
-do
-    local sub = P.World:SubTab("⏱️ Tempo")
-
-    local freezeCard = sub:Card("TIME STOP", "❄️", 1)
-    freezeCard:Note("Congela os outros jogadores. Seu personagem continua livre; NPCs, projéteis e mapa não são afetados.")
-    local timeStopRemote = game:GetService("ReplicatedStorage"):FindFirstChild("KawanTimeStop")
-    freezeCard:Toggle("Congelar outros jogadores", false, function(on)
-        timeStopRemote = game:GetService("ReplicatedStorage"):FindFirstChild("KawanTimeStop")
-        if not timeStopRemote or not timeStopRemote:IsA("RemoteEvent") then
-            notify("Instale o Script do servidor KawanTimeStop para ativar esse recurso.")
-            return
-        end
-        timeStopRemote:FireServer(on)
-        notify(on and "Pedido de Time Stop enviado" or "Pedido para descongelar enviado")
-    end)
-    freezeCard:Button("Descongelar todos", "LIBERAR", function()
-        timeStopRemote = game:GetService("ReplicatedStorage"):FindFirstChild("KawanTimeStop")
-        if timeStopRemote and timeStopRemote:IsA("RemoteEvent") then
-            timeStopRemote:FireServer(false)
-            notify("Pedido para liberar jogadores enviado")
-        else
-            notify("RemoteEvent KawanTimeStop não encontrado")
-        end
-    end)
-
-    local fakeCard = sub:Card("FAKE FREEZE", "🧊", 2)
-    fakeCard:Note("Efeito visual local no seu personagem. Não finge uma posição congelada para os outros jogadores.")
-    local fakeHighlight = nil
-    local function setFakeFreeze(on)
-        if on then
-            local char = player.Character or player.CharacterAdded:Wait()
-            if fakeHighlight then fakeHighlight:Destroy() end
-            fakeHighlight = Instance.new("Highlight")
-            fakeHighlight.Name = "KawanFakeFreezeVisual"
-            fakeHighlight.Adornee = char
-            fakeHighlight.FillColor = Color3.fromRGB(90, 205, 255)
-            fakeHighlight.OutlineColor = Color3.fromRGB(220, 245, 255)
-            fakeHighlight.FillTransparency = 0.55
-            fakeHighlight.OutlineTransparency = 0.08
-            fakeHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            fakeHighlight.Parent = char
-            notify("Efeito Fake Freeze visual ativado")
-        else
-            if fakeHighlight then fakeHighlight:Destroy() fakeHighlight = nil end
-            notify("Efeito Fake Freeze visual desativado")
-        end
-    end
-    fakeCard:Toggle("Aparência congelada", false, setFakeFreeze)
-    gui.Destroying:Connect(function()
-        if fakeHighlight then fakeHighlight:Destroy() end
-        if timeStopRemote and timeStopRemote:IsA("RemoteEvent") then
-            pcall(function() timeStopRemote:FireServer(false) end)
-        end
-    end)
-end
-
 -- Câmera
 do
     local sub = P.Cam:SubTab("📷 Câmera")
@@ -1642,12 +1729,6 @@ do
         spectateTarget = nil
         notify("Câmera restaurada")
     end)
-    pick:Button("Copiar nome de usuário", "COPIAR", function()
-        if ordered[selected] then copyText(ordered[selected].Name) end
-    end)
-    pick:Button("Copiar ID", "COPIAR", function()
-        if ordered[selected] then copyText(tostring(ordered[selected].UserId)) end
-    end)
     pick:Button("Teleportar até jogador", "IR ATÉ", function()
         local target = ordered[selected]
         local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -1662,13 +1743,7 @@ do
         end
     end)
 
-    local alerts = sub:Card("Avisos", "🔔", 1)
-    local joinAlerts = false
-    alerts:Toggle("Avisar quando alguém entrar/sair", false, function(on) joinAlerts = on end)
-    Players.PlayerAdded:Connect(function(p)
-        refresh()
-        if joinAlerts then notify("➕ " .. p.DisplayName .. " entrou") end
-    end)
+    Players.PlayerAdded:Connect(function() refresh() end)
     Players.PlayerRemoving:Connect(function(p)
         if spectateTarget == p then
             local camera = workspace.CurrentCamera
@@ -1677,7 +1752,6 @@ do
             spectateTarget = nil
         end
         task.defer(refresh)
-        if joinAlerts then notify("➖ " .. p.DisplayName .. " saiu") end
     end)
     gui.Destroying:Connect(function()
         local camera = workspace.CurrentCamera
@@ -2181,49 +2255,10 @@ do
             task.wait(0.5)
         end
     end)
-    local rd = st:Card("Timer de round", "⏱️", 2)
-    local rdLabel = rd:Info()
-    rdLabel.Text = "Parado"
-    local secsOptions, secsValues = {"30 s", "1 min", "2 min", "5 min", "10 min"}, {30, 60, 120, 300, 600}
-    local secsIdx, countEnd = 2, nil
-    rd:Dropdown("Duração:", secsOptions, 2, function(_, i) secsIdx = i end)
-    rd:Button("Iniciar contagem", "INICIAR", function() countEnd = os.clock() + secsValues[secsIdx] end)
-    rd:Button("Cancelar", "CANCELAR", function() countEnd = nil rdLabel.Text = "Parado" end)
-    task.spawn(function()
-        while gui.Parent do
-            if countEnd then
-                local left = countEnd - os.clock()
-                if left <= 0 then
-                    countEnd = nil
-                    rdLabel.Text = "Tempo esgotado"
-                    notify("⏱️ Tempo do round acabou")
-                else
-                    rdLabel.Text = string.format("Restante: %02d:%02d", math.floor(left / 60), math.floor(left % 60))
-                end
-            end
-            task.wait(0.2)
-        end
-    end)
 end
 
--- Roleplay
+-- Roleplay (só emotes)
 do
-    local rp = {name = "", job = "", extra = ""}
-    local sub = P.Rp:SubTab("🎭 Personagem")
-    local ficha = sub:Card("Ficha do personagem", "📝", 1)
-    local sheet
-    local function refreshSheet()
-        sheet.Text = string.format("Nome: %s\nProfissão: %s\nNotas: %s",
-            rp.name ~= "" and rp.name or "-", rp.job ~= "" and rp.job or "-", rp.extra ~= "" and rp.extra or "-")
-    end
-    ficha:TextBox("Nome do personagem:", "Ex: João Silva", "", function(t) rp.name = string.sub(t, 1, 40) refreshSheet() end)
-    ficha:TextBox("Profissão / função:", "Ex: Mecânico", "", function(t) rp.job = string.sub(t, 1, 40) refreshSheet() end)
-    ficha:TextBox("Notas rápidas:", "Anotações do RP", "", function(t) rp.extra = string.sub(t, 1, 80) refreshSheet() end)
-    local view = sub:Card("Resumo", "📋", 2)
-    sheet = view:List()
-    refreshSheet()
-    view:Button("Copiar ficha", "COPIAR", function() copyText(sheet.Text) end)
-
     local act = P.Rp:SubTab("💬 Ações")
     local em = act:Card("Emotes", "💃", 1)
     local emotes = {"dance", "dance2", "dance3", "wave", "point", "cheer", "laugh", "salute"}
@@ -2231,43 +2266,6 @@ do
     em:Dropdown("Emote:", emotes, 1, function(_, i) emIdx = i end)
     em:Button("Executar emote", "EXECUTAR", function() sayInChat("/e " .. emotes[emIdx]) end)
     em:Note("Usa o comando /e do chat padrão do Roblox.")
-
-    local dice = act:Card("Dados", "🎲", 2)
-    local sides, sideIdx, announceDice = {6, 20, 100}, 1, false
-    dice:Dropdown("Dado:", {"d6", "d20", "d100"}, 1, function(_, i) sideIdx = i end)
-    dice:Toggle("Enviar resultado no chat", false, function(on) announceDice = on end)
-    dice:Button("Rolar", "ROLAR", function()
-        local n = math.random(1, sides[sideIdx])
-        local msg = string.format("🎲 d%d: %d", sides[sideIdx], n)
-        notify(msg)
-        if announceDice then sayInChat(msg) end
-    end)
-
-    local phrase = act:Card("Frase rápida", "💬", 1)
-    local phraseText = ""
-    phrase:TextBox("Mensagem (máx. 200):", "Digite e envie no chat", "", function(t) phraseText = t end)
-    phrase:Button("Enviar no chat", "ENVIAR", function() sayInChat(phraseText) end)
-
-    -- Relógio do jogo
-    local clock = new("TextLabel", {Name = "KawanClock", AnchorPoint = Vector2.new(1, 0), Size = UDim2.fromOffset(120, 26),
-        Position = UDim2.new(1, -12, 0, 60), BackgroundTransparency = 0.2, BorderSizePixel = 0, Visible = false,
-        TextColor3 = C.text, TextSize = 12, Font = Enum.Font.GothamBold}, gui)
-    bg(clock, "BackgroundColor3", "window")
-    corner(clock, 8)
-    track(stroke(clock, accent, 1, 0.5), "Color")
-    local tm = P.Rp:SubTab("🕒 Relógio")
-    local ck = tm:Card("Hora do jogo", "🕒", 1)
-    ck:Toggle("Mostrar relógio na tela", false, function(on) clock.Visible = on end)
-    ck:Note("Mostra a hora do dia do servidor (ClockTime), útil para RP.")
-    task.spawn(function()
-        while gui.Parent do
-            if clock.Visible then
-                local h = Lighting.ClockTime
-                clock.Text = string.format("🕒 %02d:%02d", math.floor(h) % 24, math.floor((h % 1) * 60))
-            end
-            task.wait(0.5)
-        end
-    end)
 end
 
 -- Recursos experimentais de movimento e veículo na aba Início.
@@ -4375,9 +4373,9 @@ Settings.safe("Personalização: salvar, perfis, fontes, atalhos", function()
     nm:Note("Para trocar o título, use Estilo > Janela > Nome do painel. O nome também é salvo na config.")
 end)
 
--- ===== Início: pesquisa, favoritos, mover HUDs, dica do dia =====
-Settings.safe("Início: pesquisa, favoritos, mover HUDs, dica do dia", function()
-    local sub = P.Home:SubTab("⭐ Favoritos")
+-- ===== Início: pesquisa, mover HUDs, dica do dia =====
+Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
+    local sub = P.Home:SubTab("🔎 Pesquisa")
     local srch = sub:Card("Pesquisar função", "🔎", 1)
     local resLbl = srch:List()
     resLbl.Text = "Digite um nome para buscar."
@@ -4387,7 +4385,7 @@ Settings.safe("Início: pesquisa, favoritos, mover HUDs, dica do dia", function(
         local q = string.lower(t or "")
         if q ~= "" then
             for _, e in ipairs(keybindEntries) do
-                if string.find(e.label, "⭐", 1, true) ~= 1 and string.find(string.lower(e.label), q, 1, true) then
+                if string.find(string.lower(e.label), q, 1, true) then
                     table.insert(found, e)
                 end
             end
@@ -4404,22 +4402,10 @@ Settings.safe("Início: pesquisa, favoritos, mover HUDs, dica do dia", function(
         e.setState(not e.getState())
     end)
 
-    local favCard = sub:Card("Favoritos", "⭐", 2)
-    local favSet = {}
-    srch:Button("Favoritar 1º resultado", "⭐ ADD", function()
-        local e = found[1]
-        if not e then notify("Pesquise antes") return end
-        if favSet[e] then notify("Já está nos favoritos") return end
-        favSet[e] = true
-        favCard:Toggle("⭐ " .. e.label, e.getState(), function(v) e.setState(v) end)
-        notify("Adicionado aos favoritos")
-    end)
-    favCard:Note("Os favoritos ficam só nesta sessão. Se você mudar a opção original em outra aba, o favorito não acompanha.")
-
     -- Mover HUDs
     local move = sub:Card("Mover HUDs", "🖐️", 1)
     local dragOn = false
-    local names = {"KawanHUD", "Detector", "KawanClock", "KawanPos", "KawanXmasHUD"}
+    local names = {"KawanHUD", "Detector", "KawanPos", "KawanXmasHUD"}
     local defaults = {}
     for _, n in ipairs(names) do
         local obj = gui:FindFirstChild(n)
@@ -4457,7 +4443,7 @@ Settings.safe("Início: pesquisa, favoritos, mover HUDs, dica do dia", function(
         end
         notify("Posições restauradas")
     end)
-    move:Note("Ligue os HUDs primeiro (aba HUD, Relógio, Natal) para poder arrastá-los.")
+    move:Note("Ligue os HUDs primeiro (aba HUD, Natal) para poder arrastá-los.")
 
     -- Dica do dia
     local tips = {
@@ -4468,7 +4454,7 @@ Settings.safe("Início: pesquisa, favoritos, mover HUDs, dica do dia", function(
         "Salve seu visual em Estilo > Perfis para voltar a ele depois.",
         "Em Natal você ajusta neve, vento, luzes e enfeites.",
         "Use a pesquisa de função para achar qualquer toggle rápido.",
-        "O cronômetro e o timer de cena ajudam em eventos de RP.",
+        "Use o botão − no topo para minimizar o painel numa bolinha K arrastável.",
         "Experimente o modo arco-íris em Estilo > Cores.",
         "Dá para mudar a fonte do painel em Estilo > Fontes.",
         "Os fogos de Ano Novo disparam sozinhos na virada.",
@@ -4678,90 +4664,6 @@ Settings.safe("Jogadores: amigos online", function()
     end)
 end)
 
--- ===== Roleplay: frases, ficha completa, dados e timer de cena =====
-Settings.safe("Roleplay: frases, ficha completa, dados e timer de cena", function()
-    local sub = P.Rp:SubTab("📝 Extras")
-
-    local fr = sub:Card("Frases rápidas", "💬", 1)
-    local phrases = {"", "", "", "", ""}
-    for i = 1, 5 do
-        fr:TextBox("Frase " .. i .. " (máx. 200):", "Digite a frase " .. i, "", function(t) phrases[i] = t end)
-        fr:Button("Enviar frase " .. i, "ENVIAR", function() sayInChat(phrases[i]) end)
-    end
-
-    local fc = sub:Card("Ficha completa", "🪪", 2)
-    local f = {age = "", phone = "", docs = "", home = ""}
-    local sheet
-    local function refreshSheet()
-        sheet.Text = string.format("Idade: %s\nTelefone: %s\nDocumentos: %s\nResidência: %s",
-            f.age ~= "" and f.age or "-", f.phone ~= "" and f.phone or "-",
-            f.docs ~= "" and f.docs or "-", f.home ~= "" and f.home or "-")
-    end
-    fc:TextBox("Idade:", "Ex: 25", "", function(t) f.age = string.sub(t, 1, 20) refreshSheet() end)
-    fc:TextBox("Telefone (fictício):", "Ex: 555-0100", "", function(t) f.phone = string.sub(t, 1, 20) refreshSheet() end)
-    fc:TextBox("Documentos (fictícios):", "Ex: RG 000", "", function(t) f.docs = string.sub(t, 1, 40) refreshSheet() end)
-    fc:TextBox("Residência:", "Ex: Rua 5", "", function(t) f.home = string.sub(t, 1, 40) refreshSheet() end)
-    sheet = fc:List()
-    refreshSheet()
-    fc:Button("Copiar ficha", "COPIAR", function() copyText(sheet.Text) end)
-    fc:Note("Use só dados fictícios do personagem.")
-
-    local dice = sub:Card("Dados com histórico", "🎲", 1)
-    local sides = {4, 6, 8, 10, 12, 20, 100}
-    local sideNames = {"d4", "d6", "d8", "d10", "d12", "d20", "d100"}
-    local sideIdx, count, announce = 2, 1, false
-    local history = {}
-    local histLbl
-    dice:Dropdown("Dado:", sideNames, 2, function(_, i) sideIdx = i end)
-    dice:Slider("Quantidade de dados", 1, 6, 1, function(v) count = v end)
-    dice:Toggle("Enviar no chat", false, function(on) announce = on end)
-    dice:Button("Rolar", "ROLAR", function()
-        local total, parts = 0, {}
-        for _ = 1, count do
-            local n = math.random(1, sides[sideIdx])
-            total += n
-            table.insert(parts, n)
-        end
-        local msg = string.format("🎲 %d%s: %s = %d", count, sideNames[sideIdx], table.concat(parts, " + "), total)
-        table.insert(history, 1, msg)
-        if #history > 10 then table.remove(history) end
-        histLbl.Text = table.concat(history, "\n")
-        notify(msg)
-        if announce then sayInChat(msg) end
-    end)
-    local hCard = sub:Card("Histórico de rolagens", "📜", 2)
-    histLbl = hCard:List()
-    histLbl.Text = "Nenhuma rolagem."
-    hCard:Button("Limpar", "LIMPAR", function()
-        table.clear(history)
-        histLbl.Text = "Nenhuma rolagem."
-    end)
-
-    local sc = sub:Card("Timer de cena", "🎬", 1)
-    local scLbl = sc:Info()
-    scLbl.Text = "Parado"
-    local mins, endAt = 5, nil
-    sc:TextBox("Minutos:", "Ex: 5", "5", function(t) mins = math.clamp(tonumber(t) or 5, 1, 180) end)
-    sc:Button("Iniciar cena", "INICIAR", function() endAt = os.clock() + mins * 60 notify("🎬 Cena iniciada: " .. mins .. " min") end)
-    sc:Button("Cancelar", "CANCELAR", function() endAt = nil scLbl.Text = "Parado" end)
-    task.spawn(function()
-        while gui.Parent do
-            if endAt then
-                local left = endAt - os.clock()
-                if left <= 0 then
-                    endAt = nil
-                    scLbl.Text = "Cena encerrada"
-                    notify("🎬 Fim da cena!")
-                    playClick()
-                else
-                    scLbl.Text = string.format("Restante: %02d:%02d", math.floor(left / 60), math.floor(left % 60))
-                end
-            end
-            task.wait(0.5)
-        end
-    end)
-end)
-
 -- ===== Jogadores: observar =====
 Settings.safe("Observar jogador", function()
     local sub = P.Players:SubTab("👁 Observar")
@@ -4889,39 +4791,7 @@ setOpen = function(v)
     end
 end
 
--- Botão flutuante para dispositivos móveis (toque para abrir/fechar).
--- Continua disponível no PC como alternativa ao RightShift.
-mobileToggle = new("TextButton", {
-    Name = "KawanMobileToggle",
-    AnchorPoint = Vector2.new(1, 1),
-    Position = UDim2.new(1, -22, 1, -110),
-    Size = UDim2.fromOffset(58, 58),
-    BackgroundColor3 = accent,
-    Text = "K",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    TextSize = 25,
-    Font = Enum.Font.GothamBlack,
-    AutoButtonColor = false,
-    BorderSizePixel = 0,
-    Visible = false,
-    ZIndex = 100,
-}, gui)
-corner(mobileToggle, 29)
-local mobileToggleStroke = stroke(mobileToggle, Color3.fromRGB(255, 255, 255), 1.5, 0.25)
-track(mobileToggleStroke, "Color")
-mobileToggle.Activated:Connect(function()
-    if not unlocked then return end
-    playClick()
-    setOpen(not open)
-end)
-
--- Mostra o botão somente depois que a key liberar o menu.
-local function updateMobileToggle()
-    mobileToggle.Visible = unlocked
-end
-table.insert(accentHooks, function()
-    mobileToggle.BackgroundColor3 = accent
-end)
+main:GetPropertyChangedSignal("Visible"):Connect(function() open = main.Visible end)
 
 closeBtn.MouseButton1Click:Connect(function()
     playClick()
@@ -5043,10 +4913,8 @@ local accStatus = label(access, {Size = UDim2.new(1, -30, 0, 22), Position = UDi
     Text = "ACESSO RESTRITO", TextColor3 = C.muted, TextSize = 10, Font = Enum.Font.GothamBold})
 
 local attempts, lockedUntil = 0, 0
-local mobileToggle
 local function showAccess()
     unlocked, isKeyAdmin, activeKey = false, false, nil
-    if mobileToggle then mobileToggle.Visible = false end
     P.Keys.item.Visible = false
     P.Owner.item.Visible = false
     ownerCat.Visible = false
@@ -5083,7 +4951,6 @@ local function tryUnlock()
         tween(accScale, 0.28, {Scale = 0.82}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         task.delay(0.3 / Settings.speed, function()
             access.Visible = false
-            if mobileToggle then mobileToggle.Visible = unlocked end
             setOpen(true)
             notify((isKeyAdmin and "👑 Bem-vindo, Dono" or "✅ Acesso liberado") .. " • 🎄 Natal v7")
         end)
