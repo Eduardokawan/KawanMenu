@@ -98,9 +98,9 @@ local Themes = {
     {name = "Gelo",     accent = rgb(225, 235, 255)},
 }
 local Backgrounds = {
-    {name = "Natal",      window = rgb(18, 13, 16), side = rgb(24, 17, 21), card = rgb(31, 23, 28), inset = rgb(14, 10, 12)},
+    {name = "Preto",      window = rgb(5, 5, 7), side = rgb(9, 9, 12), card = rgb(15, 15, 19), inset = rgb(3, 3, 5)},
     {name = "Gelo",       window = rgb(14, 26, 40), side = rgb(18, 32, 50), card = rgb(24, 43, 64), inset = rgb(11, 21, 33)},
-    {name = "Preto",      window = rgb(14, 14, 18), side = rgb(17, 17, 22), card = rgb(21, 21, 27), inset = rgb(12, 12, 16)},
+    {name = "Preto suave", window = rgb(14, 14, 18), side = rgb(17, 17, 22), card = rgb(21, 21, 27), inset = rgb(12, 12, 16)},
     {name = "Grafite",    window = rgb(24, 25, 28), side = rgb(29, 30, 34), card = rgb(35, 36, 41), inset = rgb(20, 21, 24)},
     {name = "Azul-noite", window = rgb(9, 13, 24),  side = rgb(12, 17, 31), card = rgb(16, 23, 40), inset = rgb(8, 12, 21)},
     {name = "Roxo-noite", window = rgb(16, 11, 26), side = rgb(20, 14, 32), card = rgb(26, 19, 42), inset = rgb(13, 9, 22)},
@@ -1803,6 +1803,29 @@ do
     aimCard:Dropdown("Parte do corpo:", {"Head", "Neck", "Chest", "Abdomen", "LeftArm", "RightArm", "LeftLeg", "RightLeg"}, 1,
         function(value) aimCfg.AimBodyPart = value end)
     aimCard:Note("A mira é assistência visual de câmera. Silent Aim e hitbox de dano exigem integração legítima com o sistema de armas e validação no servidor.")
+
+    -- Configurações experimentais de armas: armazenadas pelo menu, sem alterar
+    -- disparos de terceiros. Para efeito real, conecte-as ao código da arma.
+    local weaponCfg = {
+        RapidFire = false,
+        FireInterval = 0.12,
+        MagicBullet = false,
+        MagicBulletRange = 100,
+    }
+    local weaponCard = aimSub:Card("⚡ Configurações experimentais de armas", "⚡", 2)
+    weaponCard:Toggle("Tiro Rápido (configuração)", false, function(on)
+        weaponCfg.RapidFire = on
+    end)
+    weaponCard:Slider("Intervalo entre disparos (segundos x100)", 5, 100, 12, function(v)
+        weaponCfg.FireInterval = math.max(0.05, v / 100)
+    end)
+    weaponCard:Toggle("Bala Mágica (configuração)", false, function(on)
+        weaponCfg.MagicBullet = on
+    end)
+    weaponCard:Slider("Distância da Bala Mágica", 10, 500, 100, function(v)
+        weaponCfg.MagicBulletRange = v
+    end)
+    weaponCard:Note("Experimental: os valores ficam configurados no Kawan Menu, mas não modificam tiros nem redirecionam acertos. Isso depende do sistema de armas do jogo e de validação no servidor.")
 
     local espSub = P.Players:SubTab("👁 ESP")
     local espCard = espSub:Card("ESP de jogadores", "👁", 1)
