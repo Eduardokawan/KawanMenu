@@ -1,14 +1,3 @@
---[[
-    KAWAN MENU • versão animada e personalizável
-    LocalScript (StarterPlayerScripts ou StarterGui)
-
-    Funções: FullBright, hora do dia, gráficos baixos, FOV, modo foto,
-    HUD de FPS/ping.
-    Personalização: temas, cor RGB, arco-íris, fundos, arredondamento,
-    opacidade, tamanho, nome do painel, tecla de abrir, animações.
-    Tecla padrão para abrir/fechar: RightShift
-]]
-
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
