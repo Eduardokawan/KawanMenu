@@ -85,6 +85,8 @@ label{display:block;margin:12px 0 5px;color:var(--muted);font-size:12px;font-wei
 .stat span.lbl{color:var(--muted);font-size:12px}
 .stat.t{--c:#8f7bff}.stat.a{--c:var(--ok)}.stat.e{--c:var(--warn)}.stat.r{--c:var(--bad)}
 
+.warnbar{background:rgba(246,201,107,.12);border:1px solid rgba(246,201,107,.4);color:var(--warn);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13px}
+
 /* ---------- Barra de ferramentas ---------- */
 .toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .toolbar input{flex:1;min-width:200px}
@@ -178,6 +180,8 @@ textarea{width:100%;min-height:140px;background:rgba(8,11,18,.7);border:1px soli
     </div>
   </header>
 
+  <div class="warnbar hidden" id="storageWarn">⚠️ As keys estão num armazenamento <b>temporário</b>: elas somem a cada atualização do site. Configure o Upstash (veja as instruções) para guardar de forma permanente.</div>
+
   <div class="stats">
     <div class="card stat t"><div class="ico">🔑</div><div><b id="sTotal">0</b><span class="lbl">Total</span></div></div>
     <div class="card stat a"><div class="ico">✅</div><div><b id="sActive" style="color:var(--ok)">0</b><span class="lbl">Ativas</span></div></div>
@@ -193,6 +197,9 @@ textarea{width:100%;min-height:140px;background:rgba(8,11,18,.7);border:1px soli
         <option value="expired">Expiradas</option><option value="revoked">Revogadas</option>
       </select>
       <button class="btn" id="exportBtn">Copiar ativas</button>
+      <button class="btn" id="backupBtn" title="Baixa todas as keys em um arquivo">⬇ Backup</button>
+      <button class="btn" id="restoreBtn" title="Importa as keys de um arquivo de backup">⬆ Restaurar</button>
+      <input type="file" id="restoreFile" accept="application/json,.json" class="hidden">
     </div>
     <div class="tablewrap">
       <table>
@@ -280,7 +287,9 @@ $('#logoutBtn').onclick = async () => { await api('/api/logout', 'POST', {}).cat
 
 // ---------- Lista ----------
 async function load() {
-  const d = await api('/api/admin/keys'); keys = d.keys; render();
+  const d = await api('/api/admin/keys'); keys = d.keys;
+  $('#storageWarn').classList.toggle('hidden', d.storage === 'remote');
+  render();
 }
 function render() {
   $('#sTotal').textContent = keys.length;
@@ -310,6 +319,28 @@ function render() {
 }
 $('#search').oninput = render; $('#filter').onchange = render;
 $('#exportBtn').onclick = () => { const a = keys.filter((k) => k.status === 'active').map((k) => k.key); copy(a.join('\n')); };
+
+$('#backupBtn').onclick = async () => {
+  try {
+    const r = await fetch('/api/admin/backup');
+    if (!r.ok) throw new Error('Erro ao gerar backup');
+    const url = URL.createObjectURL(await r.blob());
+    const a = el('a', { href: url, download: 'kawan-keys-backup.json' });
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    toast('Backup baixado');
+  } catch (e) { toast(e.message); }
+};
+$('#restoreBtn').onclick = () => $('#restoreFile').click();
+$('#restoreFile').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const r = await api('/api/admin/restore', 'POST', { keys: Array.isArray(data) ? data : data.keys });
+    toast(r.added + ' keys restauradas' + (r.skipped ? ', ' + r.skipped + ' já existiam' : ''));
+    await load();
+  } catch (err) { toast(err.message === 'Sessão expirada' ? err.message : 'Arquivo de backup inválido'); }
+};
 
 async function doAction(k, action, msg) {
   try { await api('/api/admin/keys/' + k.id + '/' + action, 'POST', {}); toast(msg || 'Feito'); await load(); } catch (e) { toast(e.message); }
