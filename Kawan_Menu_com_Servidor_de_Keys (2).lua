@@ -1152,7 +1152,18 @@ local function newPage(name, icon)
                     tween(chev, 0.25, {Rotation = 360}, Enum.EasingStyle.Back)
                     callback(options[index], index)
                 end)
-                return {Set = function(_, i) index = i val.Text = options[i] end}
+                return {
+                    Set = function(_, i)
+                        if #options == 0 then return end
+                        index = math.clamp(i, 1, #options)
+                        val.Text = options[index]
+                    end,
+                    SetOptions = function(_, newOptions, newIndex)
+                        options = (type(newOptions) == "table" and #newOptions > 0) and newOptions or {"Nenhum veículo listado"}
+                        index = math.clamp(tonumber(newIndex) or 1, 1, #options)
+                        val.Text = options[index]
+                    end
+                }
             end
 
             function api:Button(text, buttonText, callback)
@@ -2645,8 +2656,19 @@ do
     local nearbyVehicleCard = sub:Card("Carros próximos", "🚘", 2)
     local pointCard = sub:Card("Ponto marcado", "📍", 3)
 
-    -- Scanner somente de leitura: identifica veículos próximos sem tentar tomar controle deles.
+    -- Scanner e seletor: permite escolher um veículo encontrado na lista.
     local nearbyVehiclesLabel = nearbyVehicleCard:List()
+    local nearbyVehicleModels = {}
+    local selectedNearbyVehicle = nil
+    local vehicleOptions = {"Atualize a lista primeiro"}
+    local nearbyVehicleDropdown = nearbyVehicleCard:Dropdown("Escolher veículo:", vehicleOptions, 1, function(_, index)
+        selectedNearbyVehicle = nearbyVehicleModels[index]
+        local chosen = selectedNearbyVehicle
+        if chosen then
+            notify("Selecionado: " .. chosen.Name)
+        end
+    end)
+
     local function scanNearbyVehicles()
         local _, _, playerRoot = getMoveCharacter()
         if not playerRoot then
@@ -2670,21 +2692,37 @@ do
         end
 
         table.sort(found, function(a, b) return a.distance < b.distance end)
-        local lines = {}
+        nearbyVehicleModels = {}
+        local lines, options = {}, {}
         for i = 1, math.min(#found, 30) do
             local item = found[i]
-            table.insert(lines, string.format("%02d. %s  •  %.0f studs", i, item.model.Name, item.distance))
+            nearbyVehicleModels[i] = item.model
+            options[i] = string.format("%02d. %s • %.0f studs", i, item.model.Name, item.distance)
+            table.insert(lines, options[i])
         end
-        if #lines == 0 then
+        if #options == 0 then
+            nearbyVehicleModels = {}
+            options = {"Nenhum veículo encontrado"}
+            selectedNearbyVehicle = nil
             nearbyVehiclesLabel.Text = "Nenhum veículo com VehicleSeat encontrado em até 500 studs."
         else
+            selectedNearbyVehicle = nearbyVehicleModels[1]
             nearbyVehiclesLabel.Text = table.concat(lines, "\n")
-                .. ( #found > 30 and string.format("\n... e mais %d veículo(s).", #found - 30) or "")
+                .. (#found > 30 and string.format("\n... e mais %d veículo(s).", #found - 30) or "")
         end
+        nearbyVehicleDropdown:SetOptions(options, 1)
         notify(string.format("Scanner encontrou %d veículo(s) próximo(s)", #found))
     end
+
     nearbyVehicleCard:Button("Atualizar lista de veículos", "ATUALIZAR", scanNearbyVehicles)
-    nearbyVehicleCard:Note("Mostra os veículos com VehicleSeat em até 500 studs, ordenados pela distância. A lista é informativa; não altera nem assume o controle de carros de outros jogadores.")
+    nearbyVehicleCard:Button("Confirmar seleção", "SELECIONAR", function()
+        if not selectedNearbyVehicle or not selectedNearbyVehicle.Parent then
+            notify("Atualize a lista e escolha um veículo primeiro")
+            return
+        end
+        notify("Veículo selecionado: " .. selectedNearbyVehicle.Name)
+    end)
+    nearbyVehicleCard:Note("Escolha um dos até 30 veículos encontrados em até 500 studs. A seleção identifica o carro, mas não dá permissão para puxar ou assumir veículos de outros jogadores; isso depende da autorização do servidor.")
 
     local turboEnabled, turboConn = false, nil
     local turboTargetKmh = 1000
