@@ -2642,7 +2642,49 @@ do
     supermanCard:Note("Voo livre do personagem com direção da câmera. Use Espaço para subir e Ctrl para descer.")
 
     local vehicleExtraCard = sub:Card("Extras do veículo", "🏎️", 1)
-    local pointCard = sub:Card("Ponto marcado", "📍", 2)
+    local nearbyVehicleCard = sub:Card("Carros próximos", "🚘", 2)
+    local pointCard = sub:Card("Ponto marcado", "📍", 3)
+
+    -- Scanner somente de leitura: identifica veículos próximos sem tentar tomar controle deles.
+    local nearbyVehiclesLabel = nearbyVehicleCard:List()
+    local function scanNearbyVehicles()
+        local _, _, playerRoot = getMoveCharacter()
+        if not playerRoot then
+            nearbyVehiclesLabel.Text = "Personagem ainda não carregou."
+            return
+        end
+
+        local found, seen = {}, {}
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and not seen[obj] then
+                local seat = obj:FindFirstChildWhichIsA("VehicleSeat", true)
+                if seat then
+                    local root = obj.PrimaryPart or seat
+                    local distance = (root.Position - playerRoot.Position).Magnitude
+                    if distance <= 500 then
+                        seen[obj] = true
+                        table.insert(found, {model = obj, distance = distance})
+                    end
+                end
+            end
+        end
+
+        table.sort(found, function(a, b) return a.distance < b.distance end)
+        local lines = {}
+        for i = 1, math.min(#found, 30) do
+            local item = found[i]
+            table.insert(lines, string.format("%02d. %s  •  %.0f studs", i, item.model.Name, item.distance))
+        end
+        if #lines == 0 then
+            nearbyVehiclesLabel.Text = "Nenhum veículo com VehicleSeat encontrado em até 500 studs."
+        else
+            nearbyVehiclesLabel.Text = table.concat(lines, "\n")
+                .. ( #found > 30 and string.format("\n... e mais %d veículo(s).", #found - 30) or "")
+        end
+        notify(string.format("Scanner encontrou %d veículo(s) próximo(s)", #found))
+    end
+    nearbyVehicleCard:Button("Atualizar lista de veículos", "ATUALIZAR", scanNearbyVehicles)
+    nearbyVehicleCard:Note("Mostra os veículos com VehicleSeat em até 500 studs, ordenados pela distância. A lista é informativa; não altera nem assume o controle de carros de outros jogadores.")
 
     local turboEnabled, turboConn = false, nil
     local turboTargetKmh = 1000
