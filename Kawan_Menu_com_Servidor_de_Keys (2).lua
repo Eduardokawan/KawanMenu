@@ -3405,6 +3405,185 @@ do
     buildExclusiveMovements()
 end
 
+
+do
+    local sub = P.Exclusivos:SubTab("🎥 Cinemático")
+    local ghostCard = sub:Card("Modo Fantasma", "👻", 1)
+    local cameraCard = sub:Card("Modo Cinematográfico", "🎬", 2)
+
+    -- Modo Fantasma: desativa colisões locais do personagem e restaura os valores originais.
+    local ghostEnabled = false
+    local ghostSaved = {}
+    local ghostConnections = {}
+
+    local function restoreGhost()
+        for part, oldValue in pairs(ghostSaved) do
+            if part and part.Parent then
+                part.CanCollide = oldValue
+            end
+        end
+        table.clear(ghostSaved)
+    end
+
+    local function applyGhostToCharacter(character)
+        if not ghostEnabled or not character then return end
+        for _, obj in ipairs(character:GetDescendants()) do
+            if obj:IsA("BasePart") and ghostSaved[obj] == nil then
+                ghostSaved[obj] = obj.CanCollide
+                obj.CanCollide = false
+            end
+        end
+    end
+
+    local function setGhost(on)
+        ghostEnabled = on
+        if on then
+            applyGhostToCharacter(player.Character)
+            notify("👻 Modo Fantasma ativado")
+        else
+            restoreGhost()
+            notify("Modo Fantasma desativado")
+        end
+    end
+
+    table.insert(ghostConnections, player.CharacterAdded:Connect(function(character)
+        task.wait(0.25)
+        if ghostEnabled then applyGhostToCharacter(character) end
+    end))
+
+    if player.Character then
+        table.insert(ghostConnections, player.Character.DescendantAdded:Connect(function(obj)
+            if ghostEnabled and obj:IsA("BasePart") and ghostSaved[obj] == nil then
+                ghostSaved[obj] = obj.CanCollide
+                obj.CanCollide = false
+            end
+        end))
+    end
+
+    ghostCard:Toggle("Desativar colisões do personagem", false, setGhost)
+    ghostCard:Note("Altera as colisões localmente; o servidor do jogo pode limitar o efeito.")
+
+    -- Câmera livre local para gravações e capturas, sem mover o personagem.
+    local cameraEnabled = false
+    local cameraConnection = nil
+    local savedCameraType, savedCameraSubject, savedCameraCFrame
+    local savedMouseBehavior, savedMouseIcon
+    local heldKeys = {}
+    local rotating = false
+    local cameraSpeed = 45
+    local cameraYaw, cameraPitch = 0, 0
+
+    local function stopCinematicCamera()
+        cameraEnabled = false
+        rotating = false
+        heldKeys = {}
+        if cameraConnection then
+            cameraConnection:Disconnect()
+            cameraConnection = nil
+        end
+
+        local cam = workspace.CurrentCamera
+        if cam then
+            cam.CameraType = savedCameraType or Enum.CameraType.Custom
+            if savedCameraSubject and savedCameraSubject.Parent then
+                cam.CameraSubject = savedCameraSubject
+            end
+            if savedCameraCFrame then cam.CFrame = savedCameraCFrame end
+        end
+        if savedMouseBehavior then UIS.MouseBehavior = savedMouseBehavior end
+        if savedMouseIcon ~= nil then UIS.MouseIconEnabled = savedMouseIcon end
+    end
+
+    local function startCinematicCamera()
+        local cam = workspace.CurrentCamera
+        if not cam then
+            notify("Câmera indisponível")
+            return
+        end
+
+        savedCameraType = cam.CameraType
+        savedCameraSubject = cam.CameraSubject
+        savedCameraCFrame = cam.CFrame
+        savedMouseBehavior = UIS.MouseBehavior
+        savedMouseIcon = UIS.MouseIconEnabled
+
+        local rx, ry = cam.CFrame:ToOrientation()
+        cameraPitch, cameraYaw = rx, ry
+        cameraEnabled = true
+        UIS.MouseBehavior = Enum.MouseBehavior.Default
+        UIS.MouseIconEnabled = true
+        cam.CameraType = Enum.CameraType.Scriptable
+
+        cameraConnection = RunService.RenderStepped:Connect(function(dt)
+            if not cameraEnabled then return end
+            local currentCam = workspace.CurrentCamera
+            if not currentCam then
+                stopCinematicCamera()
+                return
+            end
+
+            if rotating then
+                local delta = UIS:GetMouseDelta()
+                cameraYaw -= delta.X * 0.0025
+                cameraPitch = math.clamp(cameraPitch - delta.Y * 0.0025, -1.45, 1.45)
+            end
+
+            local rotation = CFrame.fromOrientation(cameraPitch, cameraYaw, 0)
+            local move = Vector3.zero
+            if heldKeys[Enum.KeyCode.W] then move += rotation.LookVector end
+            if heldKeys[Enum.KeyCode.S] then move -= rotation.LookVector end
+            if heldKeys[Enum.KeyCode.D] then move += rotation.RightVector end
+            if heldKeys[Enum.KeyCode.A] then move -= rotation.RightVector end
+            if heldKeys[Enum.KeyCode.E] or heldKeys[Enum.KeyCode.Space] then move += Vector3.yAxis end
+            if heldKeys[Enum.KeyCode.Q] or heldKeys[Enum.KeyCode.LeftControl] then move -= Vector3.yAxis end
+
+            local position = currentCam.CFrame.Position
+            if move.Magnitude > 0 then
+                position += move.Unit * cameraSpeed * math.min(dt, 0.05)
+            end
+            currentCam.CFrame = CFrame.new(position) * rotation
+        end)
+
+        notify("🎥 Câmera livre ativada • segure botão direito para girar")
+    end
+
+    UIS.InputBegan:Connect(function(input, processed)
+        if not cameraEnabled then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            rotating = true
+            UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+        elseif input.UserInputType == Enum.UserInputType.Keyboard then
+            heldKeys[input.KeyCode] = true
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(input)
+        if not cameraEnabled then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            rotating = false
+            UIS.MouseBehavior = Enum.MouseBehavior.Default
+        elseif input.UserInputType == Enum.UserInputType.Keyboard then
+            heldKeys[input.KeyCode] = nil
+        end
+    end)
+
+    cameraCard:Toggle("Ativar câmera livre", false, function(on)
+        if on then startCinematicCamera() else stopCinematicCamera() end
+    end)
+    cameraCard:Note("WASD move • Q/E desce/sobe • segure botão direito do mouse para girar.")
+    cameraCard:Slider("Velocidade da câmera", 10, 150, 45, function(value)
+        cameraSpeed = value
+    end)
+
+    gui.Destroying:Connect(function()
+        if ghostEnabled then restoreGhost() end
+        for _, connection in ipairs(ghostConnections) do
+            if connection then connection:Disconnect() end
+        end
+        stopCinematicCamera()
+    end)
+end
+
 do
     local sw = P.Tools:SubTab("⏱️ Relógios")
     local swCard = sw:Card("Cronômetro", "⏱️", 1)
