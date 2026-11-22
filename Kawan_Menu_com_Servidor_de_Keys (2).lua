@@ -4397,6 +4397,41 @@ Settings.safe("Início: ver coordenadas", function()
     card:Note("As coordenadas são atualizadas automaticamente. Copie quando estiver no local desejado e use os valores no Teleporte por Coordenadas.")
 end)
 
+Settings.safe("Início: teleporte por locais salvos", function()
+    local sub = P.Home:SubTab("🧭 Teleportes")
+    local card = sub:Card("Locais salvos", "📍", 1)
+
+    local destinations = {
+        {name = "Garagem", position = Vector3.new(-1002.98, 129.38, -4655.74)},
+        {name = "Hospital", position = Vector3.new(-457.41, 122.17, -4973.01)},
+    }
+
+    local function teleportTo(place)
+        local character = player.Character
+        local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso"))
+        if not root then
+            notify("Personagem não encontrado")
+            return
+        end
+        local ok = pcall(function()
+            character:PivotTo(CFrame.new(place.position))
+        end)
+        if ok then
+            notify("Indo para " .. place.name)
+        else
+            notify("Não foi possível ir para " .. place.name)
+        end
+    end
+
+    card:Button("Garagem • X -1002.98 | Y 129.38 | Z -4655.74", "IR", function()
+        teleportTo(destinations[1])
+    end)
+    card:Button("Hospital • X -457.41 | Y 122.17 | Z -4973.01", "IR", function()
+        teleportTo(destinations[2])
+    end)
+    card:Note("Locais cadastrados: Garagem e Hospital. O servidor do jogo pode bloquear ou reverter teletransportes locais.")
+end)
+
 Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
     local sub = P.Home:SubTab("🔎 Pesquisa")
     local srch = sub:Card("Pesquisar função", "🔎", 1)
