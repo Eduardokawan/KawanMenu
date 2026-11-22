@@ -13,34 +13,27 @@ local playerGui = player:WaitForChild("PlayerGui")
 local old = playerGui:FindFirstChild("KawanMenu")
 if old then old:Destroy() end
 
---------------------------------------------------------------------
--- Configurações do painel
---------------------------------------------------------------------
 local Settings = {
-    anim = true,          -- animações ligadas
-    speed = 1,            -- velocidade das animações
-    ripple = true,        -- efeito de clique
-    rainbow = false,      -- cor de destaque arco-íris
-    topline = true,       -- linha animada no topo
-    glow = true,          -- brilho animado no título
+    anim = true,
+    speed = 1,
+    ripple = true,
+    rainbow = false,
+    topline = true,
+    glow = true,
     toggleKey = Enum.KeyCode.RightShift,
-    xmas = {snow = true, hat = true, lights = true}, -- tema de Natal
+    xmas = {snow = true, hat = true, lights = true},
     snowCount = 90, snowSize = 1, wind = 0, snowColor = Color3.new(1, 1, 1),
 }
 
---------------------------------------------------------------------
--- Sistema de keys (validação ONLINE no seu painel)
---------------------------------------------------------------------
-local MASTER_KEY = ""                 -- (não usado: as keys agora vêm do servidor)
+local MASTER_KEY = ""
 local MASTER_YEARS = 9999
-local keyRecords = {}                 -- (vazio: a aba local de keys fica desativada)
+local keyRecords = {}
 local unlocked, isKeyAdmin, activeKey = false, false, nil
 local streamer = false
 
--- Tudo do servidor fica dentro deste bloco para não gastar variáveis locais (limite de 200 do Lua)
 local getKeyRecord
 do
-    local SERVER_URL = "https://kawanmenu.onrender.com"   -- URL do seu painel (sem "/" no final)
+    local SERVER_URL = "https://kawanmenu.onrender.com"
     local HttpService_ = game:GetService("HttpService")
     local keyCache = {}
 
@@ -60,7 +53,6 @@ do
         return nil
     end
 
-    -- Consulta o servidor (cache de 10s). Se o servidor cair, mantém a última resposta válida.
     getKeyRecord = function(key)
         if not key or key == "" then return nil end
         local cached = keyCache[key]
@@ -100,9 +92,6 @@ local function tween(inst, time, props, style, dir)
     return t
 end
 
---------------------------------------------------------------------
--- Cores, temas e fundos
---------------------------------------------------------------------
 local rgb = Color3.fromRGB
 local Themes = {
     {name = "Natal Vermelho", accent = rgb(235, 64, 82)},
@@ -183,9 +172,6 @@ Settings.smoothAccent = function(target)
     end)
 end
 
---------------------------------------------------------------------
--- Helpers
---------------------------------------------------------------------
 local function new(class, props, parent)
     local inst = Instance.new(class)
     for k, v in pairs(props or {}) do inst[k] = v end
@@ -217,7 +203,6 @@ local gui = new("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50,
 }, playerGui)
 
--- Controles universais de toque para funções que originalmente exigiam teclado.
 local MobilePad = {}
 do
     local touchOnly = UIS.TouchEnabled
@@ -308,7 +293,6 @@ if workspace.CurrentCamera then
     workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refreshScale)
 end
 
--- Efeito de clique (ripple)
 local function ripple(btn)
     btn.ClipsDescendants = true
     btn.MouseButton1Down:Connect(function(x, y)
@@ -326,9 +310,6 @@ local function ripple(btn)
     end)
 end
 
---------------------------------------------------------------------
--- Notificações (com barra de tempo)
---------------------------------------------------------------------
 local toastHolder = new("Frame", {Size = UDim2.fromOffset(250, 300), Position = UDim2.new(1, -266, 1, -316),
     BackgroundTransparency = 1}, gui)
 new("UIListLayout", {Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Bottom,
@@ -363,28 +344,23 @@ local function notify(text)
     end)
 end
 
---------------------------------------------------------------------
--- Janela (CanvasGroup permite fade da janela inteira)
---------------------------------------------------------------------
-local baseGT = 0 -- transparência base da janela (opacidade do painel)
+local baseGT = 0
 
 local main = new("CanvasGroup", {
     Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
     Size = UDim2.fromOffset(WIN_W, WIN_H), BorderSizePixel = 0, GroupTransparency = 1,
 })
 bg(main, "BackgroundColor3", "window")
-main.Visible = false -- só aparece depois de liberar a key
+main.Visible = false
 main.Parent = gui
 corner(main, 10, 0)
 stroke(main, C.line, 1, 0.2)
 local winScale = new("UIScale", {Scale = 0.94}, main)
 
--- Linha animada no topo
 local topLine = new("Frame", {Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0, ZIndex = 10}, main)
 local topGrad = new("UIGradient", {}, topLine)
 topLine.BackgroundColor3 = Color3.new(1, 1, 1)
 
--- Barra lateral
 local sidebar = new("Frame", {Size = UDim2.new(0, SIDE_W, 1, 0), BorderSizePixel = 0}, main)
 bg(sidebar, "BackgroundColor3", "side")
 new("Frame", {Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, -1, 0, 0),
@@ -397,7 +373,6 @@ local menuTag = label(sidebar, {Size = UDim2.new(1, 0, 0, 14), Position = UDim2.
     Text = "M E N U", TextSize = 11, Font = Enum.Font.GothamBold})
 track(menuTag, "TextColor3")
 
--- Gradientes acompanham a cor de destaque
 local function updateGradients()
     local dim = accent:Lerp(Color3.new(0, 0, 0), 0.8)
     topGrad.Color = ColorSequence.new({
@@ -414,21 +389,14 @@ end
 table.insert(accentHooks, updateGradients)
 updateGradients()
 
---------------------------------------------------------------------
--- 🎄 Tema de Natal: neve caindo, gorro de Papai Noel e luzes piscando
---------------------------------------------------------------------
 do
     local XM = Settings.xmas
 
-    -- limpa restos de execuções anteriores
     for _, n in ipairs({"KawanSnow", "KawanSnowTop"}) do
         local o = playerGui:FindFirstChild(n)
         if o then o:Destroy() end
     end
 
-    ----------------------------------------------------------------
-    -- Luzes de Natal no topo da janela
-    ----------------------------------------------------------------
     local lights = new("Frame", {Name = "XmasLights", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
         BorderSizePixel = 0, ZIndex = 45, Visible = XM.lights}, main)
     local bulbColors = {rgb(255, 70, 80), rgb(80, 230, 130), rgb(255, 205, 80), rgb(100, 170, 255)}
@@ -443,9 +411,6 @@ do
         bulbs[i] = b
     end
 
-    ----------------------------------------------------------------
-    -- Gorro de Papai Noel em cima do título
-    ----------------------------------------------------------------
     local RED, WHITE = rgb(215, 40, 50), rgb(250, 250, 255)
     local hat = new("Frame", {Name = "SantaHat", Size = UDim2.fromOffset(46, 34), BackgroundTransparency = 1,
         Rotation = -12, ZIndex = 46, Visible = XM.hat}, main)
@@ -455,10 +420,10 @@ do
         new("UICorner", {CornerRadius = UDim.new(0, radius)}, f)
         return f
     end
-    part(UDim2.fromOffset(28, 22), UDim2.fromOffset(5, 6), RED, 0, 12)        -- cúpula
-    part(UDim2.fromOffset(22, 10), UDim2.fromOffset(22, 4), RED, 30, 5)       -- ponta caída
-    part(UDim2.fromOffset(10, 10), UDim2.fromOffset(36, 9), WHITE, 0, 5)      -- pompom
-    part(UDim2.fromOffset(36, 9), UDim2.fromOffset(2, 23), WHITE, 0, 5)       -- faixa
+    part(UDim2.fromOffset(28, 22), UDim2.fromOffset(5, 6), RED, 0, 12)
+    part(UDim2.fromOffset(22, 10), UDim2.fromOffset(22, 4), RED, 30, 5)
+    part(UDim2.fromOffset(10, 10), UDim2.fromOffset(36, 9), WHITE, 0, 5)
+    part(UDim2.fromOffset(36, 9), UDim2.fromOffset(2, 23), WHITE, 0, 5)
 
     local function placeHat()
         local w = brand.TextBounds.X
@@ -468,14 +433,10 @@ do
     placeHat()
     brand:GetPropertyChangedSignal("TextBounds"):Connect(placeHat)
 
-    ----------------------------------------------------------------
-    -- Neve na TELA TODA (fica atrás do menu, não cai em cima dele)
-    ----------------------------------------------------------------
     local snowGui = new("ScreenGui", {Name = "KawanSnow", ResetOnSpawn = false, DisplayOrder = 49,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false}, playerGui)
     local field = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0}, snowGui)
 
-    -- Crosta de neve em CIMA do menu (acima da borda de cima da janela)
     local topGui = new("ScreenGui", {Name = "KawanSnowTop", ResetOnSpawn = false, DisplayOrder = 51,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false}, playerGui)
     gui.Destroying:Connect(function()
@@ -517,7 +478,6 @@ do
         return v.X, v.Y
     end
 
-    -- Quando o painel é movido, a crosta desaba em blocos de neve que caem
     local clumps = {}
     local function dropSnow(mp, ms)
         local h = crustH
@@ -545,7 +505,7 @@ do
     local movedAcc, lastMove = 0, -10
 
     local flakes = {}
-    -- lander = floco que cai sobre o menu e pousa na crosta
+
     local function resetFlake(f, w, h, above, mx, mw)
         local size = math.max(1, math.floor(math.random(2, 6) * Settings.snowSize + 0.5))
         f.x = math.random() * w
@@ -568,7 +528,6 @@ do
         flakes[i] = f
     end
 
-    -- ao abrir o painel: crosta zera e a nevasca recomeça do topo da tela
     Settings.xmasRestart = function()
         setCrust(0)
         local w, h = screenSize()
@@ -602,7 +561,6 @@ do
             if XM.hat then hat.Rotation = -12 + math.sin(t * 2) * 3 end
         end
 
-        -- detecta o painel sendo arrastado
         local cp = main.Position
         local ddx, ddy = cp.X.Offset - lastPos.X.Offset, cp.Y.Offset - lastPos.Y.Offset
         local moved = math.sqrt(ddx * ddx + ddy * ddy)
@@ -627,7 +585,6 @@ do
         crust.Size = UDim2.fromOffset(ms.X, 40)
         crust.GroupTransparency = main.GroupTransparency
 
-        -- blocos de neve caindo
         for i = #clumps, 1, -1 do
             local c = clumps[i]
             if c.delay > 0 then
@@ -647,7 +604,6 @@ do
         end
         if not Settings.anim then return end
 
-        -- a crosta só volta a crescer depois que o painel para de se mexer
         local still = (t - lastMove) > 0.6
         local w, h = screenSize()
         local landY = mp.Y - crustH * 0.9
@@ -678,7 +634,6 @@ local sidebarList = new("ScrollingFrame", {Size = UDim2.new(1, 0, 1, -140), Posi
 new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, sidebarList)
 new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, sidebarList)
 
--- Perfil
 local profile = new("Frame", {Size = UDim2.new(1, 0, 0, 58), Position = UDim2.new(0, 0, 1, -58),
     BackgroundTransparency = 1}, sidebar)
 new("Frame", {Size = UDim2.new(1, -24, 0, 1), Position = UDim2.fromOffset(12, 0),
@@ -716,7 +671,6 @@ local function updateProfileLicense(record)
     end
 end
 
--- Barra superior e conteúdo
 local topBar = new("Frame", {Size = UDim2.new(1, -SIDE_W, 0, TOP_H), Position = UDim2.fromOffset(SIDE_W, 0),
     BackgroundTransparency = 1}, main)
 new("Frame", {Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1),
@@ -737,7 +691,6 @@ end)
 local content = new("Frame", {Size = UDim2.new(1, -SIDE_W, 1, -TOP_H), Position = UDim2.fromOffset(SIDE_W, TOP_H),
     BackgroundTransparency = 1}, main)
 
--- Arrastar
 do
     local dragging, dragStart, startPos
     local function begin(input)
@@ -760,18 +713,11 @@ do
     end)
 end
 
---------------------------------------------------------------------
--- KAWAN • MOBILE + MINIMIZAR  (cole logo ACIMA do bloco "Páginas, sub-abas, cards")
--- Tudo fica dentro de do ... end para não gastar variáveis locais (limite de 200 do Lua)
---------------------------------------------------------------------
 do
     local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
     local minimized = false
-    local BUBBLE_PX = 52                       -- tamanho da bolha em pixels (tamanho real na tela)
+    local BUBBLE_PX = 52
 
-    ----------------------------------------------------------------
-    -- 2) Botões de topo maiores no celular + botão de minimizar
-    ----------------------------------------------------------------
     local bs = isMobile and 32 or 26
     closeBtn.Size = UDim2.fromOffset(bs, bs)
     closeBtn.Position = UDim2.new(1, -(bs + 10), 0.5, -bs / 2)
@@ -787,7 +733,6 @@ do
     minBtn.MouseEnter:Connect(function() tween(minBtn, 0.12, {TextColor3 = accent}) end)
     minBtn.MouseLeave:Connect(function() tween(minBtn, 0.12, {TextColor3 = C.muted}) end)
 
-    -- as abas de topo (criadas depois) não podem ficar por baixo dos botões
     local reserve = bs * 2 + 26
     topBar.ChildAdded:Connect(function(c)
         if c:IsA("Frame") and c.Size.X.Offset == -50 then
@@ -795,9 +740,6 @@ do
         end
     end)
 
-    ----------------------------------------------------------------
-    -- 3) Bolha flutuante (abre o menu; no celular substitui a tecla RightShift)
-    ----------------------------------------------------------------
     local bubble = new("TextButton", {
         Name = "KawanBubble", Position = UDim2.fromOffset(14, 120),
         Text = "K", Font = Enum.Font.GothamBlack, AutoButtonColor = false,
@@ -808,7 +750,6 @@ do
     track(stroke(bubble, accent, 2, 0.1), "Color")
     new("UICorner", {CornerRadius = UDim.new(1, 0)}, bubble)
 
-    -- mantém a bolha com o mesmo tamanho real em qualquer tela
     local function fitBubble()
         local s = math.max(uiScale.Scale, 0.05)
         local px = BUBBLE_PX / s
@@ -833,9 +774,6 @@ do
         if bubble.Visible then clampBubble() end
     end
 
-    ----------------------------------------------------------------
-    -- 4) Minimizar / restaurar
-    ----------------------------------------------------------------
     local function minimize()
         if not main.Visible or minimized then return end
         minimized = true
@@ -870,9 +808,6 @@ do
     end)
     updateBubble()
 
-    ----------------------------------------------------------------
-    -- 5) Bolha arrastável (arrastar move; toque curto abre o menu)
-    ----------------------------------------------------------------
     local dragging, moved, startIn, startPos = false, false, nil, nil
     bubble.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -902,9 +837,6 @@ do
     end)
 end
 
---------------------------------------------------------------------
--- Páginas, sub-abas, cards
---------------------------------------------------------------------
 local pages, activePage = {}, nil
 
 local function selectSub(page, sub, force)
@@ -944,7 +876,6 @@ table.insert(accentHooks, function()
     if activePage then activePage.icon.TextColor3 = accent end
 end)
 
--- Keybinds individuais para todos os toggles do painel.
 local keybindEntries = {}
 local waitingForKeybind = nil
 
@@ -1311,9 +1242,6 @@ local function newPage(name, icon)
     return page
 end
 
---------------------------------------------------------------------
--- Páginas
---------------------------------------------------------------------
 local P = {}
 newCategory("Geral")
 P.Home = newPage("Início", "🏠")
@@ -1331,7 +1259,6 @@ P.Settings = newPage("Ajustes", "⚙️")
 newCategory("Natal")
 P.Xmas = newPage("Natal & Ano Novo", "🎄")
 
--- Início
 do
     local sub = P.Home:SubTab("📋 Resumo")
     local info = sub:Card("Sessão", "👤", 1):Info()
@@ -1345,14 +1272,11 @@ do
         end
     end)
 
-    -- Noclip exclusivo do carro: desativa colisão apenas nas peças do veículo dirigido
-    -- e restaura os valores originais ao desligar ou sair do banco.
     local carNoclipEnabled = false
     local carNoclipToggle
     local carNoclipModel, carNoclipConn, carNoclipAddedConn = nil, nil, nil
     local carCollisionSaved = {}
 
-    -- Helper local desta seção: não depende de funções declaradas em outras abas.
     local function getCurrentDrivenCar()
         local character = player.Character
         local hum = character and character:FindFirstChildOfClass("Humanoid")
@@ -1411,8 +1335,7 @@ do
                 return true
             end
             local n = string.lower(part.Name)
-            -- Preserve wheels and suspension-related pieces so vehicle physics
-            -- does not lose its support/contact geometry.
+
             local keepTerms = {"wheel", "tire", "tyre", "roda", "pneu",
                 "suspension", "suspensao", "axle", "eixo", "spring", "mola"}
             for _, term in ipairs(keepTerms) do
@@ -1432,8 +1355,6 @@ do
             end
         end
 
-        -- Disable only body panels/secondary parts. Keep the seat, assembly root,
-        -- wheels and suspension collidable to avoid destabilizing the vehicle.
         for _, obj in ipairs(model:GetDescendants()) do
             disablePartCollision(obj)
         end
@@ -1451,7 +1372,6 @@ do
                 return
             end
 
-            -- Reaplica apenas nas peças da carroceria; peças críticas ficam intactas.
             refreshClock = refreshClock + dt
             if refreshClock >= 0.15 then
                 refreshClock = 0
@@ -1477,9 +1397,6 @@ do
     tips:Note("Arraste pela barra superior ou pela lateral para mover a janela.")
 end
 
-
-
--- HUD
 do
     local hud = new("TextLabel", {Name = "KawanHUD", Size = UDim2.fromOffset(170, 26), Position = UDim2.new(0, 12, 0, 12),
         BackgroundTransparency = 0.2, BorderSizePixel = 0, Visible = false, TextColor3 = C.text, TextSize = 12,
@@ -1516,7 +1433,6 @@ do
     card:Toggle("Exibir ping", true, function(on) showPing = on end)
 end
 
--- Detector: lista quem está invisível ou voando perto de você (só observa, não altera nada)
 do
     local det = {on = true, invisible = true, flying = true}
 
@@ -1545,7 +1461,6 @@ do
     local rayParams = RaycastParams.new()
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-    -- invisível: nenhuma parte do corpo (fora o HumanoidRootPart) está visível
     local function isInvisible(char)
         local found = false
         for _, d in ipairs(char:GetChildren()) do
@@ -1557,7 +1472,6 @@ do
         return found
     end
 
-    -- voando: no ar (sem chão por perto) por mais de ~1s, parado/flutuando ou subindo
     local function isFlying(plr, char, root, hum, step)
         if hum.Sit then airborne[plr] = 0 return false end
         local okS, state = pcall(function() return hum:GetState() end)
@@ -1634,7 +1548,6 @@ do
     card:Note("Aparece no canto da tela só quando alguém for detectado. É uma estimativa: veículos e pulos altos podem enganar.")
 end
 
--- Utilidades compartilhadas pelas abas novas (nada aqui altera o jogo dos outros)
 local TeleportService = game:GetService("TeleportService")
 local TextChatService = game:GetService("TextChatService")
 
@@ -1663,7 +1576,6 @@ local function getHumanoid()
     return ch and ch:FindFirstChildOfClass("Humanoid")
 end
 
--- Jogadores (lista informativa do servidor)
 do
     local sub = P.Players:SubTab("👥 Servidor")
     local listCard = sub:Card("Jogadores online", "👥", 1)
@@ -1753,7 +1665,6 @@ do
     refresh()
 end
 
--- PvP (mira na tela e estatísticas da sessão)
 do
     local crossGui = playerGui:FindFirstChild("KawanMenuCross")
     if crossGui then crossGui:Destroy() end
@@ -1793,8 +1704,6 @@ do
     cc:Toggle("Ponto central", false, function(on) cfg.dot = on layout() end)
     cc:Dropdown("Cor da mira:", colorNames, 1, function(_, i) cfg.colorMode = i recolor() end)
 
-    -- Opções de combate adaptadas do script de referência.
-    -- Aimbot é assistência de câmera para a experiência própria; não altera tiros.
     local aimCfg = {
         Aimbot = false, SilentAim = false, SmoothAim = true,
         SmoothnessAimbot = 8, SmoothnessSilent = 8,
@@ -1904,7 +1813,6 @@ do
         function(value) aimCfg.AimBodyPart = value end)
     aimCard:Note("A mira é assistência visual de câmera. Silent Aim e hitbox de dano exigem integração legítima com o sistema de armas e validação no servidor.")
 
-    -- ESP e hitbox visual de jogadores, centralizados na aba Jogadores.
     local espSub = P.Players:SubTab("👁 ESP")
     local espCard = espSub:Card("ESP de jogadores", "👁", 1)
     local espCfg = {
@@ -2004,7 +1912,7 @@ do
         local stroke = new("UIStroke", {Color = accent, Thickness = 1.6, Transparency = 0.05}, frame)
         return frame, stroke
     end
-    -- Usa o letreiro nativo do Humanoid; não cria BillboardGui/labels extras.
+
     local function applyNativeNameDistance(obj, humanoid)
         if obj.nativeHumanoid ~= humanoid then
             restoreNativeNameDistance(obj)
@@ -2117,7 +2025,6 @@ do
                 end
             elseif obj.line then obj.line.Visible = false end
 
-            -- Skeleton ESP: linhas entre articulações visíveis na tela, sem atravessar paredes.
             if camera and viewport and espCfg.Skeleton then
                 local isR6 = character:FindFirstChild("Torso") ~= nil
                 local pairsList = isR6 and skeletonPairsR6 or skeletonPairs
@@ -2153,7 +2060,6 @@ do
                 for _, segment in ipairs(obj.skeleton) do segment.Visible = false end
             end
 
-            -- Radar circular relativo à orientação do jogador.
             if espCfg.Radar and myRoot then
                 ensureRadar()
                 radarRoot.Visible = true
@@ -2222,7 +2128,6 @@ do
     cs:Slider("Distância do centro", 0, 20, cfg.gap, function(v) cfg.gap = v layout() end)
     cs:Slider("Espessura", 1, 6, cfg.thick, function(v) cfg.thick = v layout() end)
 
-    -- Estatísticas da sessão (só leitura dos seus próprios dados)
     local deaths, aliveSince = 0, os.clock()
     local function hook(char)
         aliveSince = os.clock()
@@ -2249,7 +2154,6 @@ do
     end)
 end
 
--- Roleplay (só emotes)
 do
     local act = P.Rp:SubTab("💬 Ações")
     local em = act:Card("Emotes", "💃", 1)
@@ -2260,7 +2164,6 @@ do
     em:Note("Usa o comando /e do chat padrão do Roblox.")
 end
 
--- Recursos de movimento e veículo reunidos na nova aba EXCLUSIVOS.
 do
     local sub = P.Exclusivos:SubTab("🚀 Movimentos")
     local airCard = sub:Card("Movimentos especiais", "🪽", 1)
@@ -2433,7 +2336,6 @@ do
         end
     end
 
-    -- Pulo infinito: reaplica o estado de salto quando o jogador pede outro pulo no ar.
     local jumpRequestConn = UIS.JumpRequest:Connect(function()
         if not infiniteJumpEnabled then return end
         local _, hum = getMoveCharacter()
@@ -2500,8 +2402,6 @@ do
         return nil
     end
 
-    -- No modo helicóptero, evita colisões ENTRE peças do próprio veículo,
-    -- mas mantém colisões com o mapa/mundo. Não é noclip.
     local heliCollisionGroup = "KawanHeli_" .. tostring(player.UserId)
     local heliCollisionSaved = {}
     local heliCollisionModel, heliCollisionAddedConn = nil, nil
@@ -2527,8 +2427,7 @@ do
         local ok = pcall(function()
             PhysicsService:RegisterCollisionGroup(heliCollisionGroup)
         end)
-        -- Configure only this private group to ignore itself; collisions with
-        -- Default/other groups remain enabled.
+
         pcall(function()
             PhysicsService:CollisionGroupSetCollidable(heliCollisionGroup, heliCollisionGroup, false)
         end)
@@ -2594,7 +2493,7 @@ do
             end
             local cam = workspace.CurrentCamera
             if not cam then return end
-            -- Controle original: movimento acompanha diretamente a direção e a inclinação da câmera.
+
             local forward = ((UIS:IsKeyDown(Enum.KeyCode.W) or MobilePad.Down("forward")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.S) or MobilePad.Down("back")) and 1 or 0)
             local side = ((UIS:IsKeyDown(Enum.KeyCode.D) or MobilePad.Down("right")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.A) or MobilePad.Down("left")) and 1 or 0)
             local vertical = ((UIS:IsKeyDown(Enum.KeyCode.Space) or MobilePad.Down("up")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C) or MobilePad.Down("down")) and 1 or 0)
@@ -2603,9 +2502,7 @@ do
             vehicleVelocity.Velocity = direction * vehicleFlightSpeed
             local look = Vector3.new(cam.CFrame.LookVector.X, cam.CFrame.LookVector.Y, cam.CFrame.LookVector.Z)
             if look.Magnitude > 0.05 then
-                -- Alinha a FRENTE do banco do motorista com a câmera.
-                -- Alguns veículos têm o AssemblyRootPart girado 180 graus em relação ao banco;
-                -- alinhar apenas o root fazia o veículo parecer voar de ré.
+
                 local _, currentHum = getMoveCharacter()
                 local seat = currentHum and currentHum.SeatPart
                 if seat and seat:IsA("VehicleSeat") then
@@ -2632,7 +2529,7 @@ do
     airCard:Toggle("Wall Run • correr nas paredes", false, function(on)
         if on then startWallRun() else stopWallRun() notify("Wall Run desativado") end
     end)
-    -- Blink: teleporte curto e limitado na direção da câmera, com verificação de obstáculos.
+
     local blinkDistance = 16
     local blinkCooldown = false
     airCard:Slider("Distância do Blink", 5, 30, blinkDistance, function(value)
@@ -2726,12 +2623,9 @@ do
     end)
     supermanCard:Note("Voo livre do personagem com direção da câmera. Use Espaço para subir e Ctrl para descer.")
 
-    -- Extras solicitados: turbo configurável, nitro, estabilizador e ponto marcado.
     local vehicleExtraCard = sub:Card("Extras do veículo", "🏎️", 1)
     local pointCard = sub:Card("Ponto marcado", "📍", 2)
 
-    -- Turbo contínuo: alvo configurável até 1000 km/h.
-    -- Conversão aproximada usando 1 stud = 0,28 m. O turbo usa aceleração progressiva; o limite real depende do chassis/física e da validação do servidor.
     local turboEnabled, turboConn = false, nil
     local turboTargetKmh = 1000
     local function setTurbo(on)
@@ -2759,12 +2653,9 @@ do
             local hum = seat and seat:FindFirstChildOfClass("Humanoid")
             local vehicleSeat = hum and hum.SeatPart
             if not vehicleSeat or not vehicleSeat:IsA("VehicleSeat") then return end
-            -- Só aplica turbo quando o acelerador está para frente.
-            -- Não inverte o vetor quando ThrottleFloat é negativo: isso evita
-            -- que controles/chassis com eixo de acelerador invertido empurrem o carro para trás.
+
             if vehicleFlyEnabled or vehicleSeat.ThrottleFloat <= 0.05 then return end
-            -- A orientação do banco do motorista define a frente do veículo;
-            -- não usamos AssemblyRootPart, que pode estar montado ao contrário.
+
             local forward = Vector3.new(vehicleSeat.CFrame.LookVector.X, 0, vehicleSeat.CFrame.LookVector.Z)
             if forward.Magnitude < 0.05 then return end
             forward = forward.Unit
@@ -2789,7 +2680,6 @@ do
         if turboEnabled then notify("Turbo ajustado para " .. value .. " km/h") end
     end)
     airCard:Note("O turbo fica em Movimentos especiais. Entre no veículo e mantenha W/acelerador; 1000 km/h é um alvo teórico e depende da física e do servidor.")
-
 
     vehicleExtraCard:Button("Turbo / Nitro", "NITRO", function()
         local root = findDrivenVehicle()
@@ -2834,7 +2724,7 @@ do
         root.AssemblyLinearVelocity = current + side * 65 + root.CFrame.LookVector * 18
         notify("Drift aplicado")
     end)
-    -- Efeitos experimentais aplicados somente ao veículo que o jogador dirige.
+
     local earthquakeEnabled, earthquakeConn = false, nil
     vehicleExtraCard:Toggle("Modo terremoto", false, function(on)
         earthquakeEnabled = on
@@ -2970,7 +2860,6 @@ do
         notify("Você voltou ao ponto marcado")
     end)
 
-    -- VIP: aura, asas visuais, passos aquáticos e impacto de aterrissagem.
     local vipCard = sub:Card("Habilidades VIP", "👑", 1)
     local vipAuraOn, vipAuraObjects = false, {}
     local vipTrailOn, vipTrailObjects = false, {}
@@ -3116,7 +3005,6 @@ do
     end)
     vipCard:Note("Efeitos visuais locais para o seu personagem. O pouso cria uma onda azul ao tocar o chão.")
 
-    -- Veículos VIP: garagem simples de sessão, retorno, hover, manobras e visual neon.
     local garageCard = sub:Card("Garagem VIP", "🅿️", 2)
     local vehicleStyleCard = sub:Card("Estilo e manobras", "✨", 1)
     local savedVehicleModel, savedVehiclePivot = nil, nil
@@ -3251,7 +3139,6 @@ do
     vehicleStyleCard:Button("Hidráulica dianteira", "HIDRO", function() vehicleStunt("hidraulica") end)
     vehicleStyleCard:Note("O modo helicóptero usa o controle de voo do veículo. Manobras são impulsos físicos do veículo.")
 
-    -- Invisibilidade local do veículo: guarda e restaura a transparência original.
     local vehicleInvisible = false
     local invisibleSaved = {}
     local function setVehicleInvisible(on)
@@ -3281,7 +3168,6 @@ do
     invisibleCard:Toggle("Ocultar meu veículo", false, setVehicleInvisible)
     invisibleCard:Note("A transparência é aplicada localmente e pode não ficar invisível para os outros jogadores. Desative para restaurar as peças.")
 
-    -- Três atalhos de garagem para veículos usados nesta sessão.
     local favoriteCard = sub:Card("Atalhos da garagem", "⭐", 1)
     local favoriteVehicles = {}
     local function saveFavorite(slot)
@@ -3310,7 +3196,6 @@ do
     end
     favoriteCard:Note("Os atalhos guardam referências durante esta sessão. O reposicionamento depende das permissões de rede e das regras do seu jogo.")
 
-    -- Bônus VIP separado do nitro comum já existente.
     local vipVehicleCard = sub:Card("Bônus VIP de veículos", "💎", 2)
     vipVehicleCard:Button("Nitro VIP", "VIP NITRO", function()
         local root = findDrivenVehicle()
@@ -3344,8 +3229,7 @@ do
         end
     end)
     player.CharacterRemoving:Connect(function()
-        -- Desconecta os efeitos do personagem antigo, mas preserva os toggles
-        -- para reativá-los automaticamente quando o novo personagem carregar.
+
         if airWalkConn then airWalkConn:Disconnect(); airWalkConn = nil end
         if airWalkPlatform then airWalkPlatform:Destroy(); airWalkPlatform = nil end
         if wallRunConn then wallRunConn:Disconnect(); wallRunConn = nil end
@@ -3391,7 +3275,6 @@ do
     end)
 end
 
--- Ferramentas
 do
     local sw = P.Tools:SubTab("⏱️ Relógios")
     local swCard = sw:Card("Cronômetro", "⏱️", 1)
@@ -3547,7 +3430,6 @@ do
     end)
 end
 
--- Estilo (cores e aparência)
 local rainbowToggle
 do
     local themeNames, bgNames = {}, {}
@@ -3612,7 +3494,6 @@ do
     name:Note("Troque pelo nome do seu servidor ou da sua facção.")
 end
 
--- Ajustes
 local setOpen
 do
     local sub = P.Settings:SubTab("✨ Animações")
@@ -3651,11 +3532,9 @@ do
     end)
 end
 
--- Página interna mantida oculta para compatibilidade; geração/gerenciamento local de keys removidos.
 P.Keys = newPage("Chaves", "🔑")
 P.Keys.item.Visible = false
 
--- Exclusivo do Dono (só aparece com key admin) • tudo local e visual
 local ownerCat = newCategory("Exclusivo")
 P.Owner = newPage("Dono", "👑")
 ownerCat.Visible = false
@@ -3699,7 +3578,6 @@ do
         if ownerState.aura then applyAura(true) end
     end)
 
-    -- Filtros de tela
     local filters = {
         {"Normal"},
         {"Vibrante", sat = 0.45, con = 0.1, tint = rgb(255, 255, 255)},
@@ -3719,7 +3597,6 @@ do
         f.Saturation, f.Contrast, f.TintColor = d.sat, d.con, d.tint
     end
 
-    -- Paletas animadas
     local palettes = {
         {"Nenhum"},
         {"Real", rgb(255, 195, 70), rgb(255, 245, 210)},
@@ -3728,7 +3605,6 @@ do
         {"Oceano", rgb(70, 140, 255), rgb(35, 205, 255), rgb(80, 235, 155)},
     }
 
-    -- Streamer / posição / anúncio
     local function applyStreamer()
         profileName.Text = streamer and "••••••" or player.DisplayName
         avatar.ImageTransparency = streamer and 1 or 0
@@ -3768,7 +3644,6 @@ do
     end
     local announceText = ""
 
-    -- Conteúdo
     local sub = P.Owner:SubTab("✨ Exclusivos")
     local id = sub:Card("Identidade", "👑", 1)
     handles.crown = id:Toggle("Coroa animada no perfil", true, function(on) ownerState.crown = on applyCrown() end)
@@ -3841,9 +3716,6 @@ do
     end
 end
 
---------------------------------------------------------------------
--- 🎄 v7: Natal+, personalização, utilidades e roleplay
---------------------------------------------------------------------
 Settings.safe = function(name, fn)
     local ok, err = pcall(fn)
     if not ok then
@@ -3867,12 +3739,10 @@ Settings.applyLook = function(color, bgIdx, instant)
     end
 end
 
--- ===== Natal: enfeites, contagem, neve, luzes =====
 Settings.safe("Natal: enfeites, contagem, neve, luzes", function()
     local XM = Settings.xmas
     local sub = P.Xmas:SubTab("🎄 Enfeites")
 
-    -- Contagem regressiva para o Natal
     local function christmasLeft()
         local now = os.time()
         local y = tonumber(os.date("%Y", now))
@@ -3907,7 +3777,6 @@ Settings.safe("Natal: enfeites, contagem, neve, luzes", function()
         end
     end)
 
-    -- Bolinhas penduradas, estrela e laço
     local orn = new("Frame", {Name = "XmasOrnaments", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
         BorderSizePixel = 0, ZIndex = 44, Visible = false}, main)
     local ornColors = {rgb(235, 64, 82), rgb(80, 230, 130), rgb(255, 205, 80), rgb(100, 170, 255), rgb(255, 120, 200), rgb(225, 235, 255)}
@@ -3942,7 +3811,6 @@ Settings.safe("Natal: enfeites, contagem, neve, luzes", function()
     end)
     ornCard:Note("Bolinhas balançando no topo, estrela na lateral e laço no botão fechar.")
 
-    -- Neve
     local snow = sub:Card("Neve", "❄️", 1)
     Settings.snowSliders = {}
     Settings.snowSliders.count = snow:Slider("Quantidade de flocos", 0, 90, Settings.snowCount, function(v) Settings.snowCount = v end)
@@ -3964,7 +3832,6 @@ Settings.safe("Natal: enfeites, contagem, neve, luzes", function()
         if Settings.snowRefresh then Settings.snowRefresh() end
     end)
 
-    -- Luzes
     local lt = sub:Card("Luzes de Natal", "💡", 2)
     local palettes = {
         {"Clássico", {rgb(255, 70, 80), rgb(80, 230, 130), rgb(255, 205, 80), rgb(100, 170, 255)}},
@@ -3981,7 +3848,6 @@ Settings.safe("Natal: enfeites, contagem, neve, luzes", function()
     lt:Note("Troca as cores das lâmpadas piscando no topo da janela.")
 end)
 
--- ===== Natal: extras (tema completo, presente, aura, cartão, música) =====
 Settings.safe("Natal: extras (tema completo, presente, aura, cartão, música)", function()
     local XM = Settings.xmas
     local sub = P.Xmas:SubTab("🎁 Extras")
@@ -4023,7 +3889,6 @@ Settings.safe("Natal: extras (tema completo, presente, aura, cartão, música)",
         end
     end)
 
-    -- Aura de neve no personagem (visual local)
     local aura
     local function setAura(on)
         if aura then aura:Destroy() aura = nil end
@@ -4051,7 +3916,6 @@ Settings.safe("Natal: extras (tema completo, presente, aura, cartão, música)",
     end)
     gui.Destroying:Connect(function() setAura(false) end)
 
-    -- Cartão de Natal
     local function xmasCard(text)
         text = string.sub(text or "", 1, 80)
         if text == "" then text = "Feliz Natal!" end
@@ -4076,7 +3940,6 @@ Settings.safe("Natal: extras (tema completo, presente, aura, cartão, música)",
     cc:Button("Mostrar cartão", "MOSTRAR", function() xmasCard(cardText) end)
     cc:Note("O cartão aparece só na sua tela.")
 
-    -- Música (você escolhe o ID)
     local music = new("Sound", {Name = "KawanXmasMusic", Looped = true, Volume = 0.4}, gui)
     local musicId = ""
     local mc = sub:Card("Música de Natal", "🎶", 1)
@@ -4098,7 +3961,6 @@ Settings.safe("Natal: extras (tema completo, presente, aura, cartão, música)",
     gui.Destroying:Connect(function() music:Stop() end)
 end)
 
--- ===== Ano Novo: fogos e contagem =====
 Settings.safe("Ano Novo: fogos e contagem", function()
     local sub = P.Xmas:SubTab("🎆 Ano Novo")
     local fwGui = new("ScreenGui", {Name = "KawanFireworks", ResetOnSpawn = false, IgnoreGuiInset = true,
@@ -4204,7 +4066,6 @@ Settings.safe("Ano Novo: fogos e contagem", function()
     end)
 end)
 
--- ===== Personalização: salvar, perfis, fontes, atalhos =====
 Settings.safe("Personalização: salvar, perfis, fontes, atalhos", function()
     local HttpService = game:GetService("HttpService")
     local XM = Settings.xmas
@@ -4339,7 +4200,6 @@ Settings.safe("Personalização: salvar, perfis, fontes, atalhos", function()
         end)
     end
 
-    -- Fontes
     local fsub = P.Style:SubTab("🔤 Fontes")
     local families = {
         {"Gotham (padrão)", Enum.Font.GothamBlack, Enum.Font.GothamBold, Enum.Font.GothamMedium},
@@ -4375,7 +4235,6 @@ Settings.safe("Personalização: salvar, perfis, fontes, atalhos", function()
     nm:Note("Para trocar o título, use Estilo > Janela > Nome do painel. O nome também é salvo na config.")
 end)
 
--- ===== Início: pesquisa, mover HUDs, dica do dia =====
 Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
     local sub = P.Home:SubTab("🔎 Pesquisa")
     local srch = sub:Card("Pesquisar função", "🔎", 1)
@@ -4404,7 +4263,6 @@ Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
         e.setState(not e.getState())
     end)
 
-    -- Mover HUDs
     local move = sub:Card("Mover HUDs", "🖐️", 1)
     local dragOn = false
     local names = {"KawanHUD", "Detector", "KawanPos", "KawanXmasHUD"}
@@ -4447,7 +4305,6 @@ Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
     end)
     move:Note("Ligue os HUDs primeiro (aba HUD, Natal) para poder arrastá-los.")
 
-    -- Dica do dia
     local tips = {
         "Clique no campo ao lado de cada toggle para definir uma tecla de atalho.",
         "Arraste o painel pela barra superior ou pela lateral.",
@@ -4472,7 +4329,6 @@ Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
     end)
 end)
 
--- ===== Utilidades: histórico, atalhos, anti-AFK, calculadora, conversor, foto =====
 Settings.safe("Utilidades: histórico, atalhos, anti-AFK, calculadora, conversor, foto", function()
     local sub = P.Tools:SubTab("🧩 Utilidades")
 
@@ -4538,7 +4394,6 @@ Settings.safe("Utilidades: histórico, atalhos, anti-AFK, calculadora, conversor
     end)
     photo:Note("Tire o print nesses 5 segundos (tecla de captura do seu aparelho).")
 
-    -- Calculadora
     local function evalExpr(src)
         local s = string.gsub(src, "%s+", "")
         s = string.gsub(s, ",", ".")
@@ -4614,7 +4469,6 @@ Settings.safe("Utilidades: histórico, atalhos, anti-AFK, calculadora, conversor
         end
     end)
 
-    -- Conversor
     local conv = sub:Card("Conversor", "🔁", 2)
     local convOut = conv:Info()
     local convNames = {"studs → metros", "metros → studs", "°C → °F", "°F → °C", "km → milhas", "milhas → km"}
@@ -4636,7 +4490,6 @@ Settings.safe("Utilidades: histórico, atalhos, anti-AFK, calculadora, conversor
     end)
 end)
 
--- ===== Jogadores: amigos online =====
 Settings.safe("Jogadores: amigos online", function()
     local sub = P.Players:SubTab("🤝 Amigos")
     local card = sub:Card("Amigos no servidor", "🤝", 1)
@@ -4666,7 +4519,6 @@ Settings.safe("Jogadores: amigos online", function()
     end)
 end)
 
--- ===== Jogadores: observar =====
 Settings.safe("Observar jogador", function()
     local sub = P.Players:SubTab("👁 Observar")
     local card = sub:Card("Observar jogador", "👁", 1)
@@ -4771,9 +4623,6 @@ Settings.safe("Observar jogador", function()
     refreshInfo()
 end)
 
---------------------------------------------------------------------
--- Abrir / fechar com animação
---------------------------------------------------------------------
 local open = false
 setOpen = function(v)
     open = v
@@ -4848,9 +4697,6 @@ UIS.InputBegan:Connect(function(input, processed)
     end
 end)
 
---------------------------------------------------------------------
--- Animação contínua (brilho, linha e arco-íris)
---------------------------------------------------------------------
 RunService.Heartbeat:Connect(function()
     local t = os.clock()
     if Settings.glow then brandGrad.Offset = Vector2.new(math.sin(t * 1.2) * 0.6, 0) end
@@ -4868,9 +4714,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
---------------------------------------------------------------------
--- Tela de acesso (key)
---------------------------------------------------------------------
 local access = new("Frame", {Name = "Access", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
     Size = UDim2.fromOffset(340, 232), BorderSizePixel = 0, ZIndex = 100}, gui)
 bg(access, "BackgroundColor3", "window")
@@ -4978,7 +4821,6 @@ end
 unlockBtn.Activated:Connect(function() playClick() tryUnlock() end)
 keyInput.FocusLost:Connect(function(enter) if enter then tryUnlock() end end)
 
--- Se a key for revogada ou expirar durante o uso, o painel volta a bloquear
 task.spawn(function()
     while gui.Parent do
         task.wait(15)
