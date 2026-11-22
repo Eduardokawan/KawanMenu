@@ -14,26 +14,26 @@ local old = playerGui:FindFirstChild("KawanMenu")
 if old then old:Destroy() end
 
 local Settings = {
-    anim = true,
-    speed = 1,
-    ripple = true,
-    rainbow = false,
-    topline = true,
-    glow = true,
+    anim = true,          
+    speed = 1,            
+    ripple = true,        
+    rainbow = false,      
+    topline = true,       
+    glow = true,          
     toggleKey = Enum.KeyCode.RightShift,
-    xmas = {snow = true, hat = true, lights = true},
+    xmas = {snow = true, hat = true, lights = true}, 
     snowCount = 90, snowSize = 1, wind = 0, snowColor = Color3.new(1, 1, 1),
 }
 
-local MASTER_KEY = ""
+local MASTER_KEY = ""                 
 local MASTER_YEARS = 9999
-local keyRecords = {}
+local keyRecords = {}                 
 local unlocked, isKeyAdmin, activeKey = false, false, nil
 local streamer = false
 
 local getKeyRecord
 do
-    local SERVER_URL = "https://kawanmenu.onrender.com"
+    local SERVER_URL = "https://kawanmenu.onrender.com"   
     local HttpService_ = game:GetService("HttpService")
     local keyCache = {}
 
@@ -344,14 +344,14 @@ local function notify(text)
     end)
 end
 
-local baseGT = 0
+local baseGT = 0 
 
 local main = new("CanvasGroup", {
     Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
     Size = UDim2.fromOffset(WIN_W, WIN_H), BorderSizePixel = 0, GroupTransparency = 1,
 })
 bg(main, "BackgroundColor3", "window")
-main.Visible = false
+main.Visible = false 
 main.Parent = gui
 corner(main, 10, 0)
 stroke(main, C.line, 1, 0.2)
@@ -420,10 +420,10 @@ do
         new("UICorner", {CornerRadius = UDim.new(0, radius)}, f)
         return f
     end
-    part(UDim2.fromOffset(28, 22), UDim2.fromOffset(5, 6), RED, 0, 12)
-    part(UDim2.fromOffset(22, 10), UDim2.fromOffset(22, 4), RED, 30, 5)
-    part(UDim2.fromOffset(10, 10), UDim2.fromOffset(36, 9), WHITE, 0, 5)
-    part(UDim2.fromOffset(36, 9), UDim2.fromOffset(2, 23), WHITE, 0, 5)
+    part(UDim2.fromOffset(28, 22), UDim2.fromOffset(5, 6), RED, 0, 12)        
+    part(UDim2.fromOffset(22, 10), UDim2.fromOffset(22, 4), RED, 30, 5)       
+    part(UDim2.fromOffset(10, 10), UDim2.fromOffset(36, 9), WHITE, 0, 5)      
+    part(UDim2.fromOffset(36, 9), UDim2.fromOffset(2, 23), WHITE, 0, 5)       
 
     local function placeHat()
         local w = brand.TextBounds.X
@@ -505,7 +505,7 @@ do
     local movedAcc, lastMove = 0, -10
 
     local flakes = {}
-
+    
     local function resetFlake(f, w, h, above, mx, mw)
         local size = math.max(1, math.floor(math.random(2, 6) * Settings.snowSize + 0.5))
         f.x = math.random() * w
@@ -716,7 +716,7 @@ end
 do
     local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
     local minimized = false
-    local BUBBLE_PX = 52
+    local BUBBLE_PX = 52                       
 
     local bs = isMobile and 32 or 26
     closeBtn.Size = UDim2.fromOffset(bs, bs)
@@ -1242,11 +1242,18 @@ local function newPage(name, icon)
     return page
 end
 
+local saved = {
+    Brightness = Lighting.Brightness, Ambient = Lighting.Ambient, OutdoorAmbient = Lighting.OutdoorAmbient,
+    ClockTime = Lighting.ClockTime, GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd,
+}
+local savedFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70
+
 local P = {}
 newCategory("Geral")
 P.Home = newPage("Início", "🏠")
-newCategory("EXCLUSIVOS")
-P.Exclusivos = newPage("EXCLUSIVOS", "⭐")
+newCategory("Visual")
+P.World = newPage("Mundo", "🌍")
+P.Cam = newPage("Câmera", "📷")
 newCategory("Jogo")
 P.Players = newPage("Jogadores", "👥")
 P.Pvp = newPage("PvP", "⚔️")
@@ -1395,6 +1402,71 @@ do
     tips:Note("Cada toggle tem um campo de tecla ao lado: clique nele e pressione a tecla desejada.")
     tips:Note("Backspace remove um atalho, Esc cancela a edição e cada tecla só pode ser usada uma vez.")
     tips:Note("Arraste pela barra superior ou pela lateral para mover a janela.")
+end
+
+do
+    local sub = P.World:SubTab("💡 Iluminação")
+    local amb = sub:Card("Ambiente", "☀️", 1)
+    amb:Toggle("FullBright", false, function(on)
+        if on then
+            Lighting.Brightness = 2
+            Lighting.Ambient = rgb(190, 190, 190)
+            Lighting.OutdoorAmbient = rgb(190, 190, 190)
+            Lighting.FogEnd = 1e6
+        else
+            Lighting.Brightness = saved.Brightness
+            Lighting.Ambient = saved.Ambient
+            Lighting.OutdoorAmbient = saved.OutdoorAmbient
+            Lighting.FogEnd = saved.FogEnd
+        end
+    end)
+    amb:Slider("Hora do dia", 0, 24, math.floor(Lighting.ClockTime), function(v) Lighting.ClockTime = v end)
+    amb:Button("Hora original", "RESTAURAR", function()
+        Lighting.ClockTime = saved.ClockTime
+        notify("Hora restaurada")
+    end)
+
+    local perf = sub:Card("Desempenho", "⚡", 2)
+    perf:Toggle("Gráficos baixos", false, function(on)
+        Lighting.GlobalShadows = on and false or saved.GlobalShadows
+        pcall(function()
+            settings().Rendering.QualityLevel = on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Automatic
+        end)
+    end)
+    perf:Note("Desliga sombras e reduz a qualidade gráfica para ganhar FPS.")
+end
+
+do
+    local sub = P.Cam:SubTab("📷 Câmera")
+    local cam = sub:Card("Visão", "👁️", 1)
+    cam:Slider("Campo de visão (FOV)", 40, 120, math.floor(savedFov), function(v)
+        local c = workspace.CurrentCamera
+        if c then c.FieldOfView = v end
+    end)
+    cam:Button("FOV original", "RESTAURAR", function()
+        local c = workspace.CurrentCamera
+        if c then c.FieldOfView = savedFov end
+        notify("FOV restaurado")
+    end)
+
+    local photo = sub:Card("Modo Foto", "📸", 2)
+    local hidden = {}
+    photo:Toggle("Esconder interface do jogo", false, function(on)
+        if on then
+            for _, g in ipairs(playerGui:GetChildren()) do
+                if g:IsA("ScreenGui") and g ~= gui and g.Enabled then
+                    hidden[g] = true
+                    g.Enabled = false
+                end
+            end
+            pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
+        else
+            for g in pairs(hidden) do if g.Parent then g.Enabled = true end end
+            table.clear(hidden)
+            pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end)
+        end
+    end)
+    photo:Note("Feche este painel com a tecla de atalho antes de tirar o print.")
 end
 
 do
@@ -1912,7 +1984,7 @@ do
         local stroke = new("UIStroke", {Color = accent, Thickness = 1.6, Transparency = 0.05}, frame)
         return frame, stroke
     end
-
+    
     local function applyNativeNameDistance(obj, humanoid)
         if obj.nativeHumanoid ~= humanoid then
             restoreNativeNameDistance(obj)
@@ -2165,7 +2237,7 @@ do
 end
 
 do
-    local sub = P.Exclusivos:SubTab("🚀 Movimentos")
+    local sub = P.Home:SubTab("🚀 Movimentos")
     local airCard = sub:Card("Movimentos especiais", "🪽", 1)
     local jumpCard = sub:Card("Pulo reforçado", "⬆️", 2)
     local extraMoveCard = sub:Card("Mobilidade extra", "⚡", 1)
@@ -2493,7 +2565,7 @@ do
             end
             local cam = workspace.CurrentCamera
             if not cam then return end
-
+            
             local forward = ((UIS:IsKeyDown(Enum.KeyCode.W) or MobilePad.Down("forward")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.S) or MobilePad.Down("back")) and 1 or 0)
             local side = ((UIS:IsKeyDown(Enum.KeyCode.D) or MobilePad.Down("right")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.A) or MobilePad.Down("left")) and 1 or 0)
             local vertical = ((UIS:IsKeyDown(Enum.KeyCode.Space) or MobilePad.Down("up")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C) or MobilePad.Down("down")) and 1 or 0)
@@ -2529,7 +2601,7 @@ do
     airCard:Toggle("Wall Run • correr nas paredes", false, function(on)
         if on then startWallRun() else stopWallRun() notify("Wall Run desativado") end
     end)
-
+    
     local blinkDistance = 16
     local blinkCooldown = false
     airCard:Slider("Distância do Blink", 5, 30, blinkDistance, function(value)
@@ -2724,7 +2796,7 @@ do
         root.AssemblyLinearVelocity = current + side * 65 + root.CFrame.LookVector * 18
         notify("Drift aplicado")
     end)
-
+    
     local earthquakeEnabled, earthquakeConn = false, nil
     vehicleExtraCard:Toggle("Modo terremoto", false, function(on)
         earthquakeEnabled = on
@@ -3534,6 +3606,75 @@ end
 
 P.Keys = newPage("Chaves", "🔑")
 P.Keys.item.Visible = false
+do
+    local keyBox, listLabel
+    local function refreshList()
+        if not listLabel then return end
+        local names = {}
+        for k in pairs(keyRecords) do table.insert(names, k) end
+        table.sort(names)
+        local rows = {}
+        for _, k in ipairs(names) do
+            local rec = keyRecords[k]
+            local state = rec.revoked and "❌ REVOGADA" or (getKeyRecord(k) and "✅ ATIVA" or "⏰ EXPIRADA")
+            local shown = (k == MASTER_KEY) and "[MASTER]" or k
+            table.insert(rows, shown .. "\n   " .. state .. " • " .. formatExpiry(rec))
+        end
+        listLabel.Text = table.concat(rows, "\n")
+    end
+    local function newKeyString(prefix)
+        local k
+        repeat
+            k = prefix .. string.format("%04d", math.random(0, 9999)) .. "-" .. string.format("%04d", math.random(0, 9999))
+        until not keyRecords[k]
+        return k
+    end
+    local function create(prefix, days, admin)
+        local k = newKeyString(prefix)
+        keyRecords[k] = {expiresAt = os.time() + days * 86400, revoked = false, admin = admin}
+        if keyBox then keyBox.Text = k end
+        notify("Key criada: " .. k)
+        refreshList()
+    end
+
+    local sub = P.Keys:SubTab("🛠️ Gerenciar")
+    local make = sub:Card("Gerar key", "🔑", 1)
+    make:Button("Key • 1 dia", "GERAR", function() create("KW-", 1, false) end)
+    make:Button("Key • 7 dias", "GERAR", function() create("KW-", 7, false) end)
+    make:Button("Key • 30 dias", "GERAR", function() create("KW-", 30, false) end)
+    make:Button("Key vitalícia", "GERAR", function() create("KW-LIFE-", MASTER_YEARS * 365, false) end)
+    make:Button("Key ADMIN • 30 dias", "ADMIN", function() create("KW-ADMIN-", 30, true) end)
+    make:Button("Key ADMIN vitalícia", "ADMIN", function() create("KW-ADMIN-", MASTER_YEARS * 365, true) end)
+
+    local manage = sub:Card("Gerenciar", "🛠️", 2)
+    keyBox = manage:TextBox("Key (a última criada aparece aqui):", "KW-0000-0000", "", function() end)
+    manage:Button("Revogar key", "REVOGAR", function()
+        local target = string.gsub(keyBox.Text or "", "%s+", "")
+        if target == MASTER_KEY then notify("A key mestra não pode ser revogada.")
+        elseif keyRecords[target] then keyRecords[target].revoked = true notify("Key revogada")
+        else notify("Key não encontrada") end
+        refreshList()
+    end)
+    manage:Button("Renovar +30 dias", "RENOVAR", function()
+        local target = string.gsub(keyBox.Text or "", "%s+", "")
+        local rec = keyRecords[target]
+        if rec and not rec.revoked and not rec.admin then
+            rec.expiresAt = math.max(os.time(), rec.expiresAt or 0) + 30 * 86400
+            notify("Key renovada por 30 dias")
+        else
+            notify("Key inválida, revogada ou protegida")
+        end
+        refreshList()
+    end)
+    manage:Note("Copie a key no campo acima. Ela vale apenas enquanto o script estiver aberto.")
+
+    local listSub = P.Keys:SubTab("📋 Lista")
+    listLabel = listSub:Card("Keys da sessão", "📋", 1):List()
+    local act = listSub:Card("Ações", "🔄", 2)
+    act:Button("Atualizar lista", "ATUALIZAR", function() refreshList() notify("Lista atualizada") end)
+    act:Note("Validação local. Para keys persistentes e revogação real, valide em um servidor seguro.")
+    refreshList()
+end
 
 local ownerCat = newCategory("Exclusivo")
 P.Owner = newPage("Dono", "👑")
