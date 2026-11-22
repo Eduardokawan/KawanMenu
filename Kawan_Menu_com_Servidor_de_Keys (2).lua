@@ -1817,29 +1817,6 @@ do
         function(value) aimCfg.AimBodyPart = value end)
     aimCard:Note("A mira é assistência visual de câmera. Silent Aim e hitbox de dano exigem integração legítima com o sistema de armas e validação no servidor.")
 
-    -- Configurações experimentais de armas: armazenadas pelo menu, sem alterar
-    -- disparos de terceiros. Para efeito real, conecte-as ao código da arma.
-    local weaponCfg = {
-        RapidFire = false,
-        FireInterval = 0.12,
-        MagicBullet = false,
-        MagicBulletRange = 100,
-    }
-    local weaponCard = aimSub:Card("⚡ Configurações experimentais de armas", "⚡", 2)
-    weaponCard:Toggle("Tiro Rápido (configuração)", false, function(on)
-        weaponCfg.RapidFire = on
-    end)
-    weaponCard:Slider("Intervalo entre disparos (segundos x100)", 5, 100, 12, function(v)
-        weaponCfg.FireInterval = math.max(0.05, v / 100)
-    end)
-    weaponCard:Toggle("Bala Mágica (configuração)", false, function(on)
-        weaponCfg.MagicBullet = on
-    end)
-    weaponCard:Slider("Distância da Bala Mágica", 10, 500, 100, function(v)
-        weaponCfg.MagicBulletRange = v
-    end)
-    weaponCard:Note("Experimental: os valores ficam configurados no Kawan Menu, mas não modificam tiros nem redirecionam acertos. Isso depende do sistema de armas do jogo e de validação no servidor.")
-
     local espSub = P.Players:SubTab("👁 ESP")
     local espCard = espSub:Card("ESP de jogadores", "👁", 1)
     local espCfg = {
@@ -5203,4 +5180,3 @@ end)
 
 selectPage(P.Home)
 showAccess()
-
