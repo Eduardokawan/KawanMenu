@@ -1,3 +1,5 @@
+
+
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -163,14 +165,6 @@ end
 
 local function new(class, props, parent)
     local inst = Instance.new(class)
-    -- Evita que o sistema de localização automático do CoreGui tente
-    -- processar textos do menu durante a inicialização (workaround para
-    -- executores que falham no módulo interno Locales).
-    pcall(function()
-        if inst:IsA("GuiBase2d") then
-            inst.AutoLocalize = false
-        end
-    end)
     for k, v in pairs(props or {}) do inst[k] = v end
     if parent then inst.Parent = parent end
     return inst
@@ -2162,6 +2156,10 @@ do
 end
 
 do
+    -- Isola os controles de movimentos/veículos em uma função própria.
+    -- Isso evita estourar o limite de 200 registradores locais do Luau
+    -- no escopo principal durante a criação de favoriteCard.
+    local function buildExclusiveMovements()
     local sub = P.Exclusivos:SubTab("🚀 Movimentos")
     local airCard = sub:Card("Movimentos especiais", "🪽", 1)
     local jumpCard = sub:Card("Pulo reforçado", "⬆️", 2)
@@ -3270,6 +3268,8 @@ do
         if antiFlipGyro then antiFlipGyro:Destroy(); antiFlipGyro = nil end
         if jumpRequestConn then jumpRequestConn:Disconnect(); jumpRequestConn = nil end
     end)
+    end -- buildExclusiveMovements
+    buildExclusiveMovements()
 end
 
 do
