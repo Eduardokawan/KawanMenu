@@ -1325,20 +1325,11 @@ end
 --------------------------------------------------------------------
 -- Páginas
 --------------------------------------------------------------------
-local saved = {
-    Brightness = Lighting.Brightness, Ambient = Lighting.Ambient, OutdoorAmbient = Lighting.OutdoorAmbient,
-    ClockTime = Lighting.ClockTime, GlobalShadows = Lighting.GlobalShadows, FogEnd = Lighting.FogEnd,
-}
-local savedFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70
-
 local P = {}
 newCategory("Geral")
 P.Home = newPage("Início", "🏠")
 newCategory("EXCLUSIVOS")
 P.Exclusivos = newPage("EXCLUSIVOS", "⭐")
-newCategory("Visual")
-P.World = newPage("Mundo", "🌍")
-P.Cam = newPage("Câmera", "📷")
 newCategory("Jogo")
 P.Players = newPage("Jogadores", "👥")
 P.Pvp = newPage("PvP", "⚔️")
@@ -1498,72 +1489,6 @@ do
 end
 
 
--- Mundo
-do
-    local sub = P.World:SubTab("💡 Iluminação")
-    local amb = sub:Card("Ambiente", "☀️", 1)
-    amb:Toggle("FullBright", false, function(on)
-        if on then
-            Lighting.Brightness = 2
-            Lighting.Ambient = rgb(190, 190, 190)
-            Lighting.OutdoorAmbient = rgb(190, 190, 190)
-            Lighting.FogEnd = 1e6
-        else
-            Lighting.Brightness = saved.Brightness
-            Lighting.Ambient = saved.Ambient
-            Lighting.OutdoorAmbient = saved.OutdoorAmbient
-            Lighting.FogEnd = saved.FogEnd
-        end
-    end)
-    amb:Slider("Hora do dia", 0, 24, math.floor(Lighting.ClockTime), function(v) Lighting.ClockTime = v end)
-    amb:Button("Hora original", "RESTAURAR", function()
-        Lighting.ClockTime = saved.ClockTime
-        notify("Hora restaurada")
-    end)
-
-    local perf = sub:Card("Desempenho", "⚡", 2)
-    perf:Toggle("Gráficos baixos", false, function(on)
-        Lighting.GlobalShadows = on and false or saved.GlobalShadows
-        pcall(function()
-            settings().Rendering.QualityLevel = on and Enum.QualityLevel.Level01 or Enum.QualityLevel.Automatic
-        end)
-    end)
-    perf:Note("Desliga sombras e reduz a qualidade gráfica para ganhar FPS.")
-end
-
--- Câmera
-do
-    local sub = P.Cam:SubTab("📷 Câmera")
-    local cam = sub:Card("Visão", "👁️", 1)
-    cam:Slider("Campo de visão (FOV)", 40, 120, math.floor(savedFov), function(v)
-        local c = workspace.CurrentCamera
-        if c then c.FieldOfView = v end
-    end)
-    cam:Button("FOV original", "RESTAURAR", function()
-        local c = workspace.CurrentCamera
-        if c then c.FieldOfView = savedFov end
-        notify("FOV restaurado")
-    end)
-
-    local photo = sub:Card("Modo Foto", "📸", 2)
-    local hidden = {}
-    photo:Toggle("Esconder interface do jogo", false, function(on)
-        if on then
-            for _, g in ipairs(playerGui:GetChildren()) do
-                if g:IsA("ScreenGui") and g ~= gui and g.Enabled then
-                    hidden[g] = true
-                    g.Enabled = false
-                end
-            end
-            pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
-        else
-            for g in pairs(hidden) do if g.Parent then g.Enabled = true end end
-            table.clear(hidden)
-            pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true) end)
-        end
-    end)
-    photo:Note("Feche este painel com a tecla de atalho antes de tirar o print.")
-end
 
 -- HUD
 do
@@ -3737,78 +3662,9 @@ do
     end)
 end
 
--- Chaves (somente admin)
+-- Página interna mantida oculta para compatibilidade; geração/gerenciamento local de keys removidos.
 P.Keys = newPage("Chaves", "🔑")
 P.Keys.item.Visible = false
-do
-    local keyBox, listLabel
-    local function refreshList()
-        if not listLabel then return end
-        local names = {}
-        for k in pairs(keyRecords) do table.insert(names, k) end
-        table.sort(names)
-        local rows = {}
-        for _, k in ipairs(names) do
-            local rec = keyRecords[k]
-            local state = rec.revoked and "❌ REVOGADA" or (getKeyRecord(k) and "✅ ATIVA" or "⏰ EXPIRADA")
-            local shown = (k == MASTER_KEY) and "[MASTER]" or k
-            table.insert(rows, shown .. "\n   " .. state .. " • " .. formatExpiry(rec))
-        end
-        listLabel.Text = table.concat(rows, "\n")
-    end
-    local function newKeyString(prefix)
-        local k
-        repeat
-            k = prefix .. string.format("%04d", math.random(0, 9999)) .. "-" .. string.format("%04d", math.random(0, 9999))
-        until not keyRecords[k]
-        return k
-    end
-    local function create(prefix, days, admin)
-        local k = newKeyString(prefix)
-        keyRecords[k] = {expiresAt = os.time() + days * 86400, revoked = false, admin = admin}
-        if keyBox then keyBox.Text = k end
-        notify("Key criada: " .. k)
-        refreshList()
-    end
-
-    local sub = P.Keys:SubTab("🛠️ Gerenciar")
-    local make = sub:Card("Gerar key", "🔑", 1)
-    make:Button("Key • 1 dia", "GERAR", function() create("KW-", 1, false) end)
-    make:Button("Key • 7 dias", "GERAR", function() create("KW-", 7, false) end)
-    make:Button("Key • 30 dias", "GERAR", function() create("KW-", 30, false) end)
-    make:Button("Key vitalícia", "GERAR", function() create("KW-LIFE-", MASTER_YEARS * 365, false) end)
-    make:Button("Key ADMIN • 30 dias", "ADMIN", function() create("KW-ADMIN-", 30, true) end)
-    make:Button("Key ADMIN vitalícia", "ADMIN", function() create("KW-ADMIN-", MASTER_YEARS * 365, true) end)
-
-    local manage = sub:Card("Gerenciar", "🛠️", 2)
-    keyBox = manage:TextBox("Key (a última criada aparece aqui):", "KW-0000-0000", "", function() end)
-    manage:Button("Revogar key", "REVOGAR", function()
-        local target = string.gsub(keyBox.Text or "", "%s+", "")
-        if target == MASTER_KEY then notify("A key mestra não pode ser revogada.")
-        elseif keyRecords[target] then keyRecords[target].revoked = true notify("Key revogada")
-        else notify("Key não encontrada") end
-        refreshList()
-    end)
-    manage:Button("Renovar +30 dias", "RENOVAR", function()
-        local target = string.gsub(keyBox.Text or "", "%s+", "")
-        local rec = keyRecords[target]
-        if rec and not rec.revoked and not rec.admin then
-            rec.expiresAt = math.max(os.time(), rec.expiresAt or 0) + 30 * 86400
-            notify("Key renovada por 30 dias")
-        else
-            notify("Key inválida, revogada ou protegida")
-        end
-        refreshList()
-    end)
-    manage:Note("Copie a key no campo acima. Ela vale apenas enquanto o script estiver aberto.")
-
-    local listSub = P.Keys:SubTab("📋 Lista")
-    listLabel = listSub:Card("Keys da sessão", "📋", 1):List()
-    local act = listSub:Card("Ações", "🔄", 2)
-    act:Button("Atualizar lista", "ATUALIZAR", function() refreshList() notify("Lista atualizada") end)
-    act:Note("Validação local. Para keys persistentes e revogação real, valide em um servidor seguro.")
-    refreshList()
-end
 
 -- Exclusivo do Dono (só aparece com key admin) • tudo local e visual
 local ownerCat = newCategory("Exclusivo")
