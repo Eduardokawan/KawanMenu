@@ -2722,7 +2722,35 @@ do
         end
         notify("Veículo selecionado: " .. selectedNearbyVehicle.Name)
     end)
-    nearbyVehicleCard:Note("Escolha um dos até 30 veículos encontrados em até 500 studs. A seleção identifica o carro, mas não dá permissão para puxar ou assumir veículos de outros jogadores; isso depende da autorização do servidor.")
+    nearbyVehicleCard:Button("Puxar veículo selecionado (somente seu)", "PUXAR MEU CARRO", function()
+        local model = selectedNearbyVehicle
+        if not model or not model.Parent then
+            notify("Atualize a lista e selecione um veículo primeiro")
+            return
+        end
+        local _, _, charRoot = getMoveCharacter()
+        if not charRoot then
+            notify("Personagem ainda não carregou")
+            return
+        end
+        local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
+        local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        local ownerId = model:GetAttribute("OwnerUserId") or model:GetAttribute("OwnerId") or model:GetAttribute("CreatorUserId")
+        local isYourCar = (seat and humanoid and seat.Occupant == humanoid)
+            or (tonumber(ownerId) == player.UserId)
+        if not isYourCar then
+            notify("Só é possível puxar um veículo que você esteja dirigindo ou que esteja marcado como seu")
+            return
+        end
+        local target = charRoot.CFrame * CFrame.new(0, 0, -14)
+        local ok = pcall(function() model:PivotTo(target) end)
+        if ok then
+            notify("Pedido para puxar seu veículo enviado; o servidor pode impedir o reposicionamento")
+        else
+            notify("Não foi possível reposicionar esse veículo")
+        end
+    end)
+    nearbyVehicleCard:Note("Escolha um carro na lista e use PUXAR MEU CARRO. Por segurança, o botão só tenta reposicionar um veículo que você esteja dirigindo ou que tenha seu UserId no atributo de dono. O servidor do jogo pode bloquear ou reverter o movimento.")
 
     local turboEnabled, turboConn = false, nil
     local turboTargetKmh = 1000
