@@ -6,62 +6,158 @@
 <title>Kawan Keys</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔑</text></svg>">
 <style>
-:root{--bg:#0d0f14;--panel:#151922;--panel2:#1b2030;--line:#262c3d;--text:#e8ebf4;--muted:#8a93ab;--accent:#7c5cff;--ok:#2ecc8f;--warn:#f5b84a;--bad:#ff5d6c}
+:root{
+  --bg:#080b12;--panel:rgba(22,27,40,.78);--panel2:#1b2234;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);
+  --text:#eef1f8;--muted:#8d97b0;
+  --accent:#e0364b;--accent2:#ff6a5c;--green:#2fb36f;--gold:#f6c96b;
+  --ok:#35d39a;--warn:#f6c96b;--bad:#ff5d6c;
+  --radius:14px;--shadow:0 10px 40px rgba(0,0,0,.45)
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+html{color-scheme:dark}
+body{
+  margin:0;min-height:100vh;color:var(--text);
+  font:14px/1.5 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(900px 500px at 8% -10%,rgba(224,54,75,.20),transparent 60%),
+    radial-gradient(900px 500px at 95% 0%,rgba(47,179,111,.16),transparent 60%),
+    var(--bg);
+  background-attachment:fixed
+}
+#snow{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+body>*:not(#snow){position:relative;z-index:1}
 button,input,select{font:inherit;color:inherit}
 .hidden{display:none!important}
-.wrap{max-width:1180px;margin:0 auto;padding:20px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
-h1{font-size:20px;margin:0}
-.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
-.btn:hover{border-color:var(--accent)}
-.btn.primary{background:var(--accent);border-color:var(--accent);font-weight:600}
-.btn.danger:hover{border-color:var(--bad);color:var(--bad)}
-.btn.sm{padding:4px 9px;font-size:12px}
-input,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
-input:focus,select:focus{outline:none;border-color:var(--accent)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.stat b{display:block;font-size:24px}
-.stat span{color:var(--muted);font-size:12px}
-.toolbar{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-.toolbar input{flex:1;min-width:180px}
-.toolbar select{width:auto}
-.tablewrap{overflow-x:auto}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+
+/* ---------- Cabeçalho ---------- */
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{
+  width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:24px;
+  background:linear-gradient(135deg,var(--accent),#8f1f35);
+  box-shadow:0 6px 24px rgba(224,54,75,.45),inset 0 1px 0 rgba(255,255,255,.25)
+}
+h1{font-size:22px;margin:0;letter-spacing:-.3px;
+  background:linear-gradient(90deg,#fff,#ffd9dc 60%,#bff0d6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.head-actions{display:flex;gap:8px}
+
+/* ---------- Botões ---------- */
+.btn{
+  background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:10px;
+  padding:9px 15px;cursor:pointer;transition:transform .12s,background .15s,border-color .15s,box-shadow .15s;
+  font-weight:500
+}
+.btn:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.28)}
+.btn:active{transform:scale(.97)}
+.btn.primary{
+  background:linear-gradient(135deg,var(--accent2),var(--accent));border-color:transparent;font-weight:600;color:#fff;
+  box-shadow:0 6px 20px rgba(224,54,75,.35)
+}
+.btn.primary:hover{box-shadow:0 8px 28px rgba(224,54,75,.55);filter:brightness(1.07)}
+.btn.danger:hover{border-color:var(--bad);color:var(--bad);background:rgba(255,93,108,.08)}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+
+/* ---------- Campos ---------- */
+input,select{
+  background:rgba(8,11,18,.7);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;width:100%;
+  transition:border-color .15s,box-shadow .15s
+}
+input::placeholder{color:#5f6983}
+input:focus,select:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(224,54,75,.2)}
+select option{background:#151a28}
+label{display:block;margin:12px 0 5px;color:var(--muted);font-size:12px;font-weight:500}
+
+/* ---------- Cartões ---------- */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:var(--shadow)
+}
+
+/* ---------- Estatísticas ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.stat{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;padding:16px 18px}
+.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--accent))}
+.stat .ico{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;
+  background:color-mix(in srgb,var(--c,var(--accent)) 18%,transparent)}
+.stat b{display:block;font-size:26px;line-height:1.1;letter-spacing:-.5px}
+.stat span.lbl{color:var(--muted);font-size:12px}
+.stat.t{--c:#8f7bff}.stat.a{--c:var(--ok)}.stat.e{--c:var(--warn)}.stat.r{--c:var(--bad)}
+
+/* ---------- Barra de ferramentas ---------- */
+.toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:200px}
+.toolbar select{width:auto;min-width:130px}
+
+/* ---------- Tabela ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
 table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
-th{color:var(--muted);font-weight:500;font-size:12px}
-td.key{font-family:ui-monospace,Menlo,Consolas,monospace;cursor:pointer}
-td.key:hover{color:var(--accent)}
+th,td{text-align:left;padding:12px 12px;white-space:nowrap}
+tbody tr{border-top:1px solid var(--line);transition:background .12s}
+tbody tr:hover{background:rgba(255,255,255,.035)}
+th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.7px;background:rgba(255,255,255,.03)}
+td.key{font-family:ui-monospace,Menlo,Consolas,monospace;cursor:pointer;font-size:13px;color:#ffd9a8}
+td.key:hover{color:var(--accent2)}
 td.note{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
-.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
-.tag.active{background:#2ecc8f22;color:var(--ok)}.tag.expired{background:#f5b84a22;color:var(--warn)}.tag.revoked{background:#ff5d6c22;color:var(--bad)}
-.tag.admin{background:#7c5cff33;color:#b4a2ff;margin-left:6px}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600}
+.tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.tag.active{background:rgba(53,211,154,.13);color:var(--ok)}
+.tag.expired{background:rgba(246,201,107,.13);color:var(--warn)}
+.tag.revoked{background:rgba(255,93,108,.13);color:var(--bad)}
+.tag.admin{background:rgba(143,123,255,.2);color:#c1b5ff;margin-left:6px}
+.tag.admin::before{display:none}
 .actions{display:flex;gap:6px}
-.empty{text-align:center;color:var(--muted);padding:30px}
-.login{max-width:340px;margin:12vh auto}
-.login h1{margin-bottom:14px}
-.login input{margin-bottom:10px}
+.empty{text-align:center;color:var(--muted);padding:44px 20px}
+.empty::before{content:"🎁";display:block;font-size:32px;margin-bottom:8px}
+
+/* ---------- Login ---------- */
+.login{max-width:370px;margin:13vh auto 0;text-align:center;padding:30px 26px;position:relative}
+.login::before{
+  content:"";position:absolute;inset:-1px;border-radius:var(--radius);padding:1px;z-index:-1;
+  background:linear-gradient(135deg,var(--accent),transparent 40%,var(--green));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude
+}
+.login .logo{margin:0 auto 14px;width:56px;height:56px;font-size:28px}
+.login h1{margin-bottom:4px}
+.login .sub{margin-bottom:20px}
+.login input{margin-bottom:10px;text-align:center}
 .err{color:var(--bad);min-height:18px;margin-bottom:6px;font-size:13px}
-.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
-.modal .card{width:100%;max-width:460px;max-height:90vh;overflow:auto}
-.modal h2{margin:0 0 14px;font-size:17px}
-label{display:block;margin:10px 0 4px;color:var(--muted);font-size:12px}
+
+/* ---------- Modais ---------- */
+.modal{position:fixed;inset:0;background:rgba(3,5,10,.7);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10;animation:fade .15s}
+.modal .card{width:100%;max-width:460px;max-height:90vh;overflow:auto;background:#141a29;animation:pop .2s cubic-bezier(.2,.9,.3,1.2)}
+.modal h2{margin:0 0 6px;font-size:18px}
 .row{display:flex;gap:10px}.row>*{flex:1}
-.check{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--text);font-size:13px}
-.check input{width:auto}
-.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-textarea{width:100%;min-height:140px;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace}
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:.2s;z-index:20}
-#toast.show{opacity:1}
-@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}}
+.check{display:flex;align-items:center;gap:9px;margin-top:12px;color:var(--text);font-size:13px;cursor:pointer}
+.check input{width:auto;accent-color:var(--accent)}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+textarea{width:100%;min-height:140px;background:rgba(8,11,18,.7);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+
+/* ---------- Aviso ---------- */
+#toast{
+  position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);background:#1b2234;border:1px solid var(--line2);
+  padding:11px 18px;border-radius:99px;opacity:0;pointer-events:none;transition:.25s;z-index:20;box-shadow:var(--shadow)
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(max-width:720px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .wrap{padding:18px 14px 50px}
+  .stat b{font-size:22px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<canvas id="snow"></canvas>
 
 <div id="loginView" class="login card hidden">
-  <h1>🔑 Kawan Keys</h1>
+  <div class="logo">🎄</div>
+  <h1>Kawan Keys</h1>
+  <div class="sub">Entre para gerenciar as keys</div>
   <input id="pw" type="password" placeholder="Senha do admin" autocomplete="current-password">
   <div class="err" id="loginErr"></div>
   <button class="btn primary" style="width:100%" id="loginBtn">Entrar</button>
@@ -69,23 +165,29 @@ textarea{width:100%;min-height:140px;background:var(--bg);border:1px solid var(-
 
 <div id="appView" class="wrap hidden">
   <header>
-    <h1>🔑 Kawan Keys</h1>
-    <div style="display:flex;gap:8px">
+    <div class="brand">
+      <div class="logo">🎄</div>
+      <div>
+        <h1>Kawan Keys</h1>
+        <div class="sub">Painel de gerenciamento de keys</div>
+      </div>
+    </div>
+    <div class="head-actions">
       <button class="btn primary" id="newBtn">+ Nova key</button>
       <button class="btn" id="logoutBtn">Sair</button>
     </div>
   </header>
 
   <div class="stats">
-    <div class="card stat"><b id="sTotal">0</b><span>Total</span></div>
-    <div class="card stat"><b id="sActive" style="color:var(--ok)">0</b><span>Ativas</span></div>
-    <div class="card stat"><b id="sExpired" style="color:var(--warn)">0</b><span>Expiradas</span></div>
-    <div class="card stat"><b id="sRevoked" style="color:var(--bad)">0</b><span>Revogadas</span></div>
+    <div class="card stat t"><div class="ico">🔑</div><div><b id="sTotal">0</b><span class="lbl">Total</span></div></div>
+    <div class="card stat a"><div class="ico">✅</div><div><b id="sActive" style="color:var(--ok)">0</b><span class="lbl">Ativas</span></div></div>
+    <div class="card stat e"><div class="ico">⏳</div><div><b id="sExpired" style="color:var(--warn)">0</b><span class="lbl">Expiradas</span></div></div>
+    <div class="card stat r"><div class="ico">⛔</div><div><b id="sRevoked" style="color:var(--bad)">0</b><span class="lbl">Revogadas</span></div></div>
   </div>
 
   <div class="card">
     <div class="toolbar">
-      <input id="search" placeholder="Buscar por key ou observação…">
+      <input id="search" placeholder="🔍  Buscar por key ou observação…">
       <select id="filter">
         <option value="all">Todas</option><option value="active">Ativas</option>
         <option value="expired">Expiradas</option><option value="revoked">Revogadas</option>
@@ -104,6 +206,29 @@ textarea{width:100%;min-height:140px;background:var(--bg);border:1px solid var(-
 
 <div id="modalRoot"></div>
 <div id="toast"></div>
+
+<script>
+// ---------- Neve de fundo ----------
+(function () {
+  const c = document.getElementById('snow'), ctx = c.getContext('2d');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let w, h, flakes = [];
+  function size() { w = c.width = innerWidth; h = c.height = innerHeight; }
+  size(); addEventListener('resize', size);
+  const n = innerWidth < 720 ? 35 : 70;
+  for (let i = 0; i < n; i++) flakes.push({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 2.2 + .6, s: Math.random() * .7 + .25, d: Math.random() * Math.PI * 2 });
+  (function tick() {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    for (const f of flakes) {
+      f.y += f.s; f.d += .01; f.x += Math.sin(f.d) * .35;
+      if (f.y > h + 5) { f.y = -5; f.x = Math.random() * w; }
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283); ctx.fill();
+    }
+    requestAnimationFrame(tick);
+  })();
+})();
+</script>
 
 <script>
 const $ = (s) => document.querySelector(s);
