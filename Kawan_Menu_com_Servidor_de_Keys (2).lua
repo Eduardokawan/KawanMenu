@@ -228,6 +228,77 @@ local gui = new("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50,
 }, playerGui)
 
+-- Controles universais de toque para funções que originalmente exigiam teclado.
+local MobilePad = {}
+do
+    local touchOnly = UIS.TouchEnabled
+    local held = {forward = false, back = false, left = false, right = false, up = false, down = false}
+    local activeInputs = {}
+    local pad
+    local function setHeld(key, value) held[key] = value and true or false end
+    function MobilePad.Down(key) return held[key] == true end
+    function MobilePad.Hide()
+        for key in pairs(held) do
+            held[key] = false
+            activeInputs[key] = nil
+        end
+        if pad then pad.Visible = false end
+    end
+    function MobilePad.Show(mode)
+        if not touchOnly then return end
+        if not pad then
+            pad = new("Frame", {Name = "KawanTouchFlightControls", AnchorPoint = Vector2.new(1, 1),
+                Position = UDim2.new(1, -16, 1, -155), Size = UDim2.fromOffset(244, 100),
+                BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 100, Visible = false}, gui)
+            local buttons = {
+                {key = "forward", text = "▲", x = 48, y = 0},
+                {key = "left", text = "◀", x = 0, y = 48},
+                {key = "back", text = "▼", x = 48, y = 48},
+                {key = "right", text = "▶", x = 96, y = 48},
+                {key = "up", text = "+", x = 192, y = 0},
+                {key = "down", text = "−", x = 192, y = 48},
+            }
+            for _, item in ipairs(buttons) do
+                local button = new("TextButton", {Name = "Touch_" .. item.key,
+                    Position = UDim2.fromOffset(item.x, item.y), Size = UDim2.fromOffset(44, 44),
+                    BackgroundColor3 = Color3.fromRGB(24, 27, 36), BackgroundTransparency = 0.12,
+                    Text = item.text, TextColor3 = Color3.new(1, 1, 1), TextSize = 22,
+                    Font = Enum.Font.GothamBold, AutoButtonColor = true, Active = true,
+                    BorderSizePixel = 0, ZIndex = 101}, pad)
+                corner(button, 10)
+                stroke(button, accent, 1.2, 0.15)
+                button.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        activeInputs[item.key] = input
+                        setHeld(item.key, true)
+                    end
+                end)
+                button.InputEnded:Connect(function(input)
+                    if activeInputs[item.key] == input then
+                        activeInputs[item.key] = nil
+                        setHeld(item.key, false)
+                    end
+                end)
+            end
+            label(pad, {Name = "TouchControlHint", Position = UDim2.fromOffset(0, -18),
+                Size = UDim2.fromOffset(244, 16), Text = "MOVIMENTO • TOQUE E SEGURE",
+                TextSize = 9, TextColor3 = Color3.fromRGB(235, 235, 245),
+                TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 101})
+        end
+        pad.Visible = true
+        local hint = pad:FindFirstChild("TouchControlHint")
+        if hint then hint.Text = string.upper(mode or "CONTROLES") .. " • TOQUE E SEGURE" end
+    end
+    UIS.InputEnded:Connect(function(input)
+        for key, activeInput in pairs(activeInputs) do
+            if activeInput == input then
+                activeInputs[key] = nil
+                setHeld(key, false)
+            end
+        end
+    end)
+end
+
 local clickSound = new("Sound", {SoundId = "rbxassetid://6895079853", Volume = 0.22}, gui)
 local function playClick()
     if clickEnabled then pcall(function() clickSound:Play() end) end
@@ -802,7 +873,7 @@ do
         updateBubble()
     end
 
-    minBtn.MouseButton1Click:Connect(minimize)
+    minBtn.Activated:Connect(minimize)
 
     main:GetPropertyChangedSignal("Visible"):Connect(function()
         if main.Visible then minimized = false end
@@ -917,7 +988,7 @@ local function newPage(name, icon)
 
     local page = {item = item, text = tx, icon = ic, indicator = ind, bar = bar, body = body, subs = {}}
     table.insert(pages, page)
-    item.MouseButton1Click:Connect(function() playClick() selectPage(page) end)
+    item.Activated:Connect(function() playClick() selectPage(page) end)
     item.MouseEnter:Connect(function()
         tween(ic, 0.15, {Position = UDim2.fromOffset(14, 0)})
         if activePage ~= page then
@@ -967,7 +1038,7 @@ local function newPage(name, icon)
 
         local sub = {button = btn, body = wrap, indicator = sind}
         table.insert(self.subs, sub)
-        btn.MouseButton1Click:Connect(function()
+        btn.Activated:Connect(function()
             if page.activeSub == sub then return end
             playClick()
             selectSub(page, sub, true)
@@ -1046,13 +1117,17 @@ local function newPage(name, icon)
                 local keyEntry = {key = nil, button = keyBtn, getState = function() return state end,
                     setState = function(v) set(v, false) end, label = text}
                 table.insert(keybindEntries, keyEntry)
-                keyBtn.MouseButton1Click:Connect(function()
+                keyBtn.Activated:Connect(function()
                     playClick()
+                    if UIS.TouchEnabled and not UIS.KeyboardEnabled then
+                        notify("Atalho de teclado disponível somente no PC; use o botão da função")
+                        return
+                    end
                     waitingForKeybind = keyEntry
                     keyBtn.Text = "..."
                     notify("Pressione a tecla desejada • Backspace remove • Esc cancela")
                 end)
-                pill.MouseButton1Click:Connect(function() playClick() set(not state) end)
+                pill.Activated:Connect(function() playClick() set(not state) end)
                 pill.MouseButton1Down:Connect(function() tween(knob, 0.08, {Size = UDim2.fromOffset(16, 12)}) end)
                 pill.MouseButton1Up:Connect(function() tween(knob, 0.12, {Size = UDim2.fromOffset(12, 12)}) end)
                 if state then task.spawn(callback, state) end
@@ -1104,8 +1179,8 @@ local function newPage(name, icon)
                     end
                 end
                 render(false)
-                minus.MouseButton1Click:Connect(function() playClick() setValue(value - step) end)
-                plus.MouseButton1Click:Connect(function() playClick() setValue(value + step) end)
+                minus.Activated:Connect(function() playClick() setValue(value - step) end)
+                plus.Activated:Connect(function() playClick() setValue(value + step) end)
 
                 local dragging = false
                 local function fromX(x)
@@ -1158,7 +1233,7 @@ local function newPage(name, icon)
                     Text = "⌄", TextColor3 = C.muted, TextSize = 14, Font = Enum.Font.GothamBold})
                 box.MouseEnter:Connect(function() tween(bs, 0.12, {Color = accent, Transparency = 0.2}) end)
                 box.MouseLeave:Connect(function() tween(bs, 0.12, {Color = C.line, Transparency = 0.4}) end)
-                box.MouseButton1Click:Connect(function()
+                box.Activated:Connect(function()
                     playClick()
                     index = index % #options + 1
                     val.Text = options[index]
@@ -1182,7 +1257,7 @@ local function newPage(name, icon)
                 track(stroke(b, accent, 1, 0.5), "Color")
                 b.MouseEnter:Connect(function() tween(b, 0.1, {BackgroundColor3 = C.off}) end)
                 b.MouseLeave:Connect(function() tween(b, 0.1, {BackgroundColor3 = C.inset}) end)
-                b.MouseButton1Click:Connect(function() playClick() callback() end)
+                b.Activated:Connect(function() playClick() callback() end)
             end
 
             function api:TextBox(text, placeholder, default, callback)
@@ -1259,6 +1334,8 @@ local savedFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView
 local P = {}
 newCategory("Geral")
 P.Home = newPage("Início", "🏠")
+newCategory("EXCLUSIVOS")
+P.Exclusivos = newPage("EXCLUSIVOS", "⭐")
 newCategory("Visual")
 P.World = newPage("Mundo", "🌍")
 P.Cam = newPage("Câmera", "📷")
@@ -1828,6 +1905,7 @@ do
     end
     table.insert(accentHooks, function() aimCircleStroke.Color = accent end)
     local aimHeld = false
+    local mobileAim = UIS.TouchEnabled and not UIS.KeyboardEnabled
     UIS.InputBegan:Connect(function(input, processed)
         if not processed and input.UserInputType == Enum.UserInputType.MouseButton2 then aimHeld = true end
     end)
@@ -1873,7 +1951,7 @@ do
     end
     RunService:BindToRenderStep("KawanMenuAimAssist", Enum.RenderPriority.Camera.Value + 1, function(dt)
         refreshAimCircle()
-        if not aimCfg.Aimbot or not aimHeld then return end
+        if not aimCfg.Aimbot or (not aimHeld and not mobileAim) then return end
         local camera = workspace.CurrentCamera
         if not camera then return end
         local bestPart, bestDistance
@@ -1899,7 +1977,7 @@ do
 
     local aimSub = P.Pvp:SubTab("🎯 Combate")
     local aimCard = aimSub:Card("Combate / assistência de mira", "🎯", 1)
-    aimCard:Toggle("Aimbot (segure botão direito)", false, function(on) aimCfg.Aimbot = on end)
+    aimCard:Toggle("Aimbot (mobile automático / PC botão direito)", false, function(on) aimCfg.Aimbot = on end)
     aimCard:Toggle("Silent Aim (configuração; requer integração com armas)", false, function(on) aimCfg.SilentAim = on end)
     aimCard:Toggle("Smooth Aim", true, function(on) aimCfg.SmoothAim = on end)
     aimCard:Slider("Suavidade do Aimbot", 1, 30, 8, function(v) aimCfg.SmoothnessAimbot = v end)
@@ -2268,9 +2346,9 @@ do
     em:Note("Usa o comando /e do chat padrão do Roblox.")
 end
 
--- Recursos experimentais de movimento e veículo na aba Início.
+-- Recursos de movimento e veículo reunidos na nova aba EXCLUSIVOS.
 do
-    local sub = P.Home:SubTab("🚀 Movimentos")
+    local sub = P.Exclusivos:SubTab("🚀 Movimentos")
     local airCard = sub:Card("Movimentos especiais", "🪽", 1)
     local jumpCard = sub:Card("Pulo reforçado", "⬆️", 2)
     local extraMoveCard = sub:Card("Mobilidade extra", "⚡", 1)
@@ -2283,6 +2361,7 @@ do
     local supermanSpeed = 75
     local function stopSuperman()
         supermanEnabled = false
+        MobilePad.Hide()
         if supermanConn then supermanConn:Disconnect(); supermanConn = nil end
         if supermanVelocity then supermanVelocity:Destroy(); supermanVelocity = nil end
         if supermanGyro then supermanGyro:Destroy(); supermanGyro = nil end
@@ -2292,6 +2371,7 @@ do
         if not hum or not root or hum.Health <= 0 then notify("Personagem ainda não carregou") return end
         stopSuperman()
         supermanEnabled = true
+        MobilePad.Show("SUPERMAN")
         supermanVelocity = Instance.new("BodyVelocity")
         supermanVelocity.Name = "KawanSupermanVelocity"
         supermanVelocity.MaxForce = Vector3.new(1e7, 1e7, 1e7)
@@ -2310,15 +2390,15 @@ do
                 stopSuperman()
                 return
             end
-            local forward = (UIS:IsKeyDown(Enum.KeyCode.W) and 1 or 0) - (UIS:IsKeyDown(Enum.KeyCode.S) and 1 or 0)
-            local side = (UIS:IsKeyDown(Enum.KeyCode.D) and 1 or 0) - (UIS:IsKeyDown(Enum.KeyCode.A) and 1 or 0)
-            local vertical = (UIS:IsKeyDown(Enum.KeyCode.Space) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C)) and 1 or 0)
+            local forward = ((UIS:IsKeyDown(Enum.KeyCode.W) or MobilePad.Down("forward")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.S) or MobilePad.Down("back")) and 1 or 0)
+            local side = ((UIS:IsKeyDown(Enum.KeyCode.D) or MobilePad.Down("right")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.A) or MobilePad.Down("left")) and 1 or 0)
+            local vertical = ((UIS:IsKeyDown(Enum.KeyCode.Space) or MobilePad.Down("up")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C) or MobilePad.Down("down")) and 1 or 0)
             local direction = cam.CFrame.LookVector * forward + cam.CFrame.RightVector * side + Vector3.new(0, vertical, 0)
             if direction.Magnitude > 1 then direction = direction.Unit end
             supermanVelocity.Velocity = direction * supermanSpeed
             supermanGyro.CFrame = CFrame.lookAt(currentRoot.Position, currentRoot.Position + cam.CFrame.LookVector)
         end)
-        notify("Modo Superman ativado • W/A/S/D, Espaço sobe, Ctrl desce")
+        notify(UIS.TouchEnabled and not UIS.KeyboardEnabled and "Superman ativado • use os botões na tela" or "Modo Superman ativado • W/A/S/D, Espaço sobe, Ctrl desce")
     end
 
     local airWalkEnabled, airWalkPlatform, airWalkConn = false, nil, nil
@@ -2556,6 +2636,7 @@ do
 
     local function stopVehicleFly()
         vehicleFlyEnabled = false
+        MobilePad.Hide()
         removeVehicleFlight()
         restoreHeliSelfCollision()
     end
@@ -2575,6 +2656,7 @@ do
         end
         activeVehicleRoot = root
         vehicleFlyEnabled = true
+        MobilePad.Show("CARRO / HELICÓPTERO")
         vehicleVelocity = Instance.new("BodyVelocity")
         vehicleVelocity.Name = "KawanVehicleFlyVelocity"
         vehicleVelocity.MaxForce = Vector3.new(1e7, 1e7, 1e7)
@@ -2599,9 +2681,9 @@ do
             local cam = workspace.CurrentCamera
             if not cam then return end
             -- Controle original: movimento acompanha diretamente a direção e a inclinação da câmera.
-            local forward = (UIS:IsKeyDown(Enum.KeyCode.W) and 1 or 0) - (UIS:IsKeyDown(Enum.KeyCode.S) and 1 or 0)
-            local side = (UIS:IsKeyDown(Enum.KeyCode.D) and 1 or 0) - (UIS:IsKeyDown(Enum.KeyCode.A) and 1 or 0)
-            local vertical = (UIS:IsKeyDown(Enum.KeyCode.Space) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C)) and 1 or 0)
+            local forward = ((UIS:IsKeyDown(Enum.KeyCode.W) or MobilePad.Down("forward")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.S) or MobilePad.Down("back")) and 1 or 0)
+            local side = ((UIS:IsKeyDown(Enum.KeyCode.D) or MobilePad.Down("right")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.A) or MobilePad.Down("left")) and 1 or 0)
+            local vertical = ((UIS:IsKeyDown(Enum.KeyCode.Space) or MobilePad.Down("up")) and 1 or 0) - ((UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C) or MobilePad.Down("down")) and 1 or 0)
             local direction = cam.CFrame.LookVector * forward + cam.CFrame.RightVector * side + Vector3.new(0, vertical, 0)
             if direction.Magnitude > 1 then direction = direction.Unit end
             vehicleVelocity.Velocity = direction * vehicleFlightSpeed
@@ -2627,7 +2709,7 @@ do
                 end
             end
         end)
-        notify("Carro voador ativado • W/S/A/D, Espaço sobe, Ctrl desce")
+        notify(UIS.TouchEnabled and not UIS.KeyboardEnabled and "Voo do veículo ativado • use os botões na tela" or "Carro voador ativado • W/S/A/D, Espaço sobe, Ctrl desce")
     end
 
     airCard:Toggle("Air Walk • flutuar no ar", false, function(on)
@@ -2837,6 +2919,79 @@ do
         local current = root.AssemblyLinearVelocity
         root.AssemblyLinearVelocity = current + side * 65 + root.CFrame.LookVector * 18
         notify("Drift aplicado")
+    end)
+    -- Efeitos experimentais aplicados somente ao veículo que o jogador dirige.
+    local earthquakeEnabled, earthquakeConn = false, nil
+    vehicleExtraCard:Toggle("Modo terremoto", false, function(on)
+        earthquakeEnabled = on
+        if earthquakeConn then earthquakeConn:Disconnect(); earthquakeConn = nil end
+        if on then
+            if not findDrivenVehicle() then earthquakeEnabled = false; notify("Entre no veículo como motorista primeiro"); return end
+            local started = os.clock()
+            earthquakeConn = RunService.Heartbeat:Connect(function()
+                local root = findDrivenVehicle()
+                if not earthquakeEnabled or not root then
+                    earthquakeEnabled = false
+                    if earthquakeConn then earthquakeConn:Disconnect(); earthquakeConn = nil end
+                    return
+                end
+                local t = os.clock() - started
+                root.AssemblyAngularVelocity += Vector3.new(math.sin(t * 17) * 1.8, math.sin(t * 11) * 0.8, math.cos(t * 15) * 1.8)
+            end)
+        end
+        notify(on and "Modo terremoto ativado" or "Modo terremoto desligado")
+    end)
+    vehicleExtraCard:Button("Capotar carro", "CAPOTAR", function()
+        local root = findDrivenVehicle()
+        if not root then notify("Entre no veículo como motorista primeiro"); return end
+        root.AssemblyAngularVelocity = root.CFrame.RightVector * 7 + root.CFrame.LookVector * 2
+        root:ApplyImpulse(Vector3.new(0, root.AssemblyMass * 38, 0))
+        notify("Capotamento aplicado no seu veículo")
+    end)
+    local crazyEnabled, crazyConn = false, nil
+    vehicleExtraCard:Toggle("Carro descontrolado", false, function(on)
+        crazyEnabled = on
+        if crazyConn then crazyConn:Disconnect(); crazyConn = nil end
+        if on then
+            if not findDrivenVehicle() then crazyEnabled = false; notify("Entre no veículo como motorista primeiro"); return end
+            local started = os.clock()
+            crazyConn = RunService.Heartbeat:Connect(function()
+                local root = findDrivenVehicle()
+                if not crazyEnabled or not root then
+                    crazyEnabled = false
+                    if crazyConn then crazyConn:Disconnect(); crazyConn = nil end
+                    return
+                end
+                local t = os.clock() - started
+                local side = math.sin(t * 8) * 24
+                local forward = math.cos(t * 5) * 18
+                local look, right = root.CFrame.LookVector, root.CFrame.RightVector
+                local v = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = Vector3.new(v.X, v.Y, v.Z) + (look * forward + right * side) * 0.035
+                root.AssemblyAngularVelocity += Vector3.new(math.sin(t * 9), math.cos(t * 6) * 0.7, math.cos(t * 8)) * 0.45
+            end)
+        end
+        notify(on and "Carro descontrolado ativado" or "Carro descontrolado desligado")
+    end)
+    local lockedEnabled, lockedConn = false, nil
+    vehicleExtraCard:Toggle("Carro travado", false, function(on)
+        lockedEnabled = on
+        if lockedConn then lockedConn:Disconnect(); lockedConn = nil end
+        if on then
+            if not findDrivenVehicle() then lockedEnabled = false; notify("Entre no veículo como motorista primeiro"); return end
+            lockedConn = RunService.Heartbeat:Connect(function()
+                local root = findDrivenVehicle()
+                if not lockedEnabled or not root then
+                    lockedEnabled = false
+                    if lockedConn then lockedConn:Disconnect(); lockedConn = nil end
+                    return
+                end
+                local v = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+                root.AssemblyAngularVelocity = Vector3.zero
+            end)
+        end
+        notify(on and "Veículo travado" or "Veículo liberado")
     end)
     vehicleExtraCard:Button("Freio de mão", "FREAR", function()
         local root = findDrivenVehicle()
@@ -3361,6 +3516,7 @@ do
     end
     local function stopFly()
         flyOn = false
+        MobilePad.Hide()
         if flyConn then flyConn:Disconnect() flyConn = nil end
         if flyBV then flyBV:Destroy() flyBV = nil end
         if flyBG then flyBG:Destroy() flyBG = nil end
@@ -3372,6 +3528,7 @@ do
         if not char or not hum or not root then notify("Personagem indisponível") return end
         stopFly()
         flyOn = true
+        MobilePad.Show("VOO")
         hum.PlatformStand = true
         flyBV = new("BodyVelocity", {Name = "KawanFlyVelocity", MaxForce = Vector3.new(1e5, 1e5, 1e5),
             Velocity = Vector3.zero}, root)
@@ -3382,16 +3539,16 @@ do
             local cam = workspace.CurrentCamera
             if not cam then return end
             local direction = Vector3.zero
-            if UIS:IsKeyDown(Enum.KeyCode.W) then direction += cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then direction -= cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then direction += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then direction -= cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then direction += Vector3.yAxis end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then direction -= Vector3.yAxis end
+            if UIS:IsKeyDown(Enum.KeyCode.W) or MobilePad.Down("forward") then direction += cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) or MobilePad.Down("back") then direction -= cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) or MobilePad.Down("right") then direction += cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) or MobilePad.Down("left") then direction -= cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) or MobilePad.Down("up") then direction += Vector3.yAxis end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) or MobilePad.Down("down") then direction -= Vector3.yAxis end
             flyBV.Velocity = direction.Magnitude > 0 and direction.Unit * 55 or Vector3.zero
             flyBG.CFrame = cam.CFrame
         end)
-        notify("Voo ativado • WASD, Espaço e Ctrl")
+        notify(UIS.TouchEnabled and not UIS.KeyboardEnabled and "Voo ativado • use os botões na tela" or "Voo ativado • WASD, Espaço e Ctrl")
     end
     moveCard:Slider("Velocidade", 16, 100, 16, function(v)
         local _, hum = currentCharacter()
@@ -4793,10 +4950,10 @@ end
 
 main:GetPropertyChangedSignal("Visible"):Connect(function() open = main.Visible end)
 
-closeBtn.MouseButton1Click:Connect(function()
+closeBtn.Activated:Connect(function()
     playClick()
     setOpen(false)
-    notify("Painel oculto • " .. Settings.toggleKey.Name .. " para abrir")
+    notify(UIS.TouchEnabled and not UIS.KeyboardEnabled and "Painel oculto • toque na bolha para abrir" or "Painel oculto • " .. Settings.toggleKey.Name .. " para abrir")
 end)
 UIS.InputBegan:Connect(function(input, processed)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -4973,7 +5130,7 @@ local function tryUnlock()
         end)
     end
 end
-unlockBtn.MouseButton1Click:Connect(function() playClick() tryUnlock() end)
+unlockBtn.Activated:Connect(function() playClick() tryUnlock() end)
 keyInput.FocusLost:Connect(function(enter) if enter then tryUnlock() end end)
 
 -- Se a key for revogada ou expirar durante o uso, o painel volta a bloquear
