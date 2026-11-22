@@ -3472,11 +3472,28 @@ do
     local rotating = false
     local cameraSpeed = 45
     local cameraYaw, cameraPitch = 0, 0
+    local playerControls = nil
+    local controlsWereDisabled = false
+
+    local function getPlayerControls()
+        if playerControls then return playerControls end
+        local ok, result = pcall(function()
+            local playerModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
+            return playerModule:GetControls()
+        end)
+        if ok then playerControls = result end
+        return playerControls
+    end
 
     local function stopCinematicCamera()
         cameraEnabled = false
         rotating = false
         heldKeys = {}
+        if controlsWereDisabled then
+            local controls = getPlayerControls()
+            if controls then pcall(function() controls:Enable() end) end
+            controlsWereDisabled = false
+        end
         if cameraConnection then
             cameraConnection:Disconnect()
             cameraConnection = nil
@@ -3506,6 +3523,13 @@ do
         savedCameraCFrame = cam.CFrame
         savedMouseBehavior = UIS.MouseBehavior
         savedMouseIcon = UIS.MouseIconEnabled
+
+        -- Impede que WASD/Q/E também sejam enviados aos controles do personagem.
+        local controls = getPlayerControls()
+        if controls then
+            local ok = pcall(function() controls:Disable() end)
+            controlsWereDisabled = ok
+        end
 
         local rx, ry = cam.CFrame:ToOrientation()
         cameraPitch, cameraYaw = rx, ry
