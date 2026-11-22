@@ -163,6 +163,14 @@ end
 
 local function new(class, props, parent)
     local inst = Instance.new(class)
+    -- Evita que o sistema de localização automático do CoreGui tente
+    -- processar textos do menu durante a inicialização (workaround para
+    -- executores que falham no módulo interno Locales).
+    pcall(function()
+        if inst:IsA("GuiBase2d") then
+            inst.AutoLocalize = false
+        end
+    end)
     for k, v in pairs(props or {}) do inst[k] = v end
     if parent then inst.Parent = parent end
     return inst
