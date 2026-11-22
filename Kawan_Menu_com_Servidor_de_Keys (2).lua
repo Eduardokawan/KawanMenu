@@ -4363,6 +4363,40 @@ Settings.safe("Personalização: salvar, perfis, fontes, atalhos", function()
     nm:Note("Para trocar o título, use Estilo > Janela > Nome do painel. O nome também é salvo na config.")
 end)
 
+Settings.safe("Início: ver coordenadas", function()
+    local sub = P.Home:SubTab("📍 Coordenadas")
+    local card = sub:Card("Minha posição", "📍", 1)
+    local coordsLabel = card:Info()
+    coordsLabel.Text = "Aguardando personagem..."
+
+    local function getPosition()
+        local character = player.Character
+        local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso"))
+        return root and root.Position or nil
+    end
+
+    task.spawn(function()
+        while coordsLabel and coordsLabel.Parent do
+            local pos = getPosition()
+            if pos then
+                coordsLabel.Text = string.format("X: %.2f\nY: %.2f\nZ: %.2f", pos.X, pos.Y, pos.Z)
+            else
+                coordsLabel.Text = "Personagem não encontrado."
+            end
+            task.wait(0.2)
+        end
+    end)
+
+    card:Button("Copiar coordenadas atuais", "COPIAR", function()
+        local pos = getPosition()
+        if not pos then notify("Personagem não encontrado") return end
+        local value = string.format("%.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z)
+        local ok = pcall(function() setclipboard(value) end)
+        notify(ok and ("Coordenadas copiadas: " .. value) or ("Coordenadas: " .. value))
+    end)
+    card:Note("As coordenadas são atualizadas automaticamente. Copie quando estiver no local desejado e use os valores no Teleporte por Coordenadas.")
+end)
+
 Settings.safe("Início: pesquisa, mover HUDs, dica do dia", function()
     local sub = P.Home:SubTab("🔎 Pesquisa")
     local srch = sub:Card("Pesquisar função", "🔎", 1)
