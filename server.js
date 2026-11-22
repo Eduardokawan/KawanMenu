@@ -18,13 +18,34 @@ if (!ADMIN_PASSWORD) {
 }
 const SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update('kawan:' + ADMIN_PASSWORD).digest('hex');
 
-// ---------- Banco (JSON com escrita atômica) ----------
+// ---------- Banco ----------
+// Armazenamento PERMANENTE (recomendado): Upstash Redis via REST, grátis, sem instalar nada.
+//   UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN  → as keys ficam fora do Render e nunca somem num deploy.
+// Sem essas variáveis, usa o arquivo keys.json (no Render grátis ele é apagado a cada deploy!).
+const REMOTE_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
+const REMOTE_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const REMOTE_KEY = process.env.UPSTASH_DB_KEY || 'kawan:db';
+const USE_REMOTE = !!(REMOTE_URL && REMOTE_TOKEN);
+
+async function remoteCmd(cmd) {
+  const r = await fetch(REMOTE_URL, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + REMOTE_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmd),
+    signal: AbortSignal.timeout(15000),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error(j.error || 'Upstash HTTP ' + r.status);
+  return j.result;
+}
+
 fs.mkdirSync(DATA_DIR, { recursive: true });
 let db = { keys: [] };
-try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (_) {}
-if (!Array.isArray(db.keys)) db.keys = [];
+function normalizeDb() { if (!db || typeof db !== 'object' || !Array.isArray(db.keys)) db = { keys: [] }; }
+
+// Escrita local (arquivo) com troca atômica
 let saving = false, dirty = false;
-function save() {
+function saveLocal() {
   dirty = true;
   if (saving) return;
   saving = true;
@@ -34,9 +55,52 @@ function save() {
     fs.writeFile(tmp, JSON.stringify(db, null, 2), (err) => {
       if (!err) fs.rename(tmp, DB_FILE, () => {});
       saving = false;
-      if (dirty) save();
+      if (dirty) saveLocal();
     });
   });
+}
+
+// Escrita remota: junta várias mudanças seguidas em uma só (a cada ~2s)
+let remoteTimer = null, remoteBusy = false, remoteDirty = false;
+async function flushRemote() {
+  if (!USE_REMOTE) return;
+  if (remoteBusy) { remoteDirty = true; return; }
+  remoteBusy = true; remoteDirty = false;
+  try { await remoteCmd(['SET', REMOTE_KEY, JSON.stringify(db)]); }
+  catch (e) { console.error('Falha ao salvar no Upstash (vai tentar de novo):', e.message); remoteDirty = true; }
+  remoteBusy = false;
+  if (remoteDirty) { clearTimeout(remoteTimer); remoteTimer = setTimeout(flushRemote, 5000); }
+}
+function save() {
+  saveLocal();
+  if (USE_REMOTE && !remoteTimer) {
+    remoteTimer = setTimeout(() => { remoteTimer = null; flushRemote(); }, 2000);
+  }
+}
+
+// Carrega o banco ao iniciar. Se o armazenamento remoto falhar, NÃO sobe vazio (para não apagar nada).
+async function loadDb() {
+  if (!USE_REMOTE) {
+    try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (_) {}
+    normalizeDb();
+    return;
+  }
+  let lastErr;
+  for (let i = 1; i <= 5; i++) {
+    try {
+      const raw = await remoteCmd(['GET', REMOTE_KEY]);
+      if (raw) { db = JSON.parse(raw); normalizeDb(); }
+      else {
+        // primeira vez no Upstash: aproveita o arquivo local, se existir
+        try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (_) {}
+        normalizeDb();
+        await remoteCmd(['SET', REMOTE_KEY, JSON.stringify(db)]);
+      }
+      return;
+    } catch (e) { lastErr = e; console.error('Upstash indisponível (tentativa ' + i + '/5): ' + e.message); await new Promise((r) => setTimeout(r, 2000 * i)); }
+  }
+  console.error('Não foi possível carregar as keys do Upstash. Encerrando para não perder dados.');
+  throw lastErr;
 }
 
 // ---------- Utilidades ----------
@@ -101,10 +165,10 @@ function send(res, code, obj, headers = {}) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
   res.end(body);
 }
-function readBody(req) {
+function readBody(req, max = 100_000) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', (c) => { data += c; if (data.length > 100_000) { reject(new Error('grande')); req.destroy(); } });
+    req.on('data', (c) => { data += c; if (data.length > max) { reject(new Error('grande')); req.destroy(); } });
     req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch (e) { reject(e); } });
     req.on('error', reject);
   });
@@ -160,7 +224,36 @@ async function handleApi(req, res, url) {
 
   if (route === '/api/admin/keys' && req.method === 'GET') {
     const list = db.keys.map(publicKey).sort((a, b) => b.createdAt - a.createdAt);
-    return send(res, 200, { keys: list, now: now() });
+    return send(res, 200, { keys: list, now: now(), storage: USE_REMOTE ? 'remote' : 'file' });
+  }
+
+  // Backup: baixa todas as keys em um arquivo JSON
+  if (route === '/api/admin/backup' && req.method === 'GET') {
+    const body = JSON.stringify({ app: 'kawan-keys', exportedAt: now(), keys: db.keys }, null, 2);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+      'Content-Disposition': 'attachment; filename="kawan-keys-backup.json"' });
+    return res.end(body);
+  }
+
+  // Restaurar: soma ao banco as keys de um backup (não apaga nem duplica as que já existem)
+  if (route === '/api/admin/restore' && req.method === 'POST') {
+    const b = await readBody(req, 5_000_000);
+    const list = Array.isArray(b.keys) ? b.keys : [];
+    let added = 0, skipped = 0;
+    for (const x of list) {
+      const key = x && typeof x.key === 'string' ? x.key.trim().slice(0, 100) : '';
+      if (!key || db.keys.some((y) => y.key === key)) { skipped++; continue; }
+      const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : null);
+      db.keys.push({
+        id: typeof x.id === 'string' && /^[\w-]+$/.test(x.id) && !db.keys.some((y) => y.id === x.id) ? x.id : crypto.randomUUID(),
+        key, note: String(x.note || '').slice(0, 120), admin: !!x.admin, hwidLock: !!x.hwidLock,
+        hwid: x.hwid ? String(x.hwid).slice(0, 200) : null, createdAt: num(x.createdAt) || now(),
+        expiresAt: num(x.expiresAt), revoked: !!x.revoked, uses: num(x.uses) || 0, lastUsedAt: num(x.lastUsedAt),
+      });
+      added++;
+    }
+    if (added) save();
+    return send(res, 200, { added, skipped });
   }
 
   if (route === '/api/admin/keys' && req.method === 'POST') {
@@ -230,4 +323,14 @@ const server = http.createServer(async (req, res) => {
     send(res, 400, { error: 'Requisição inválida' });
   }
 });
-server.listen(PORT, () => console.log(`Kawan Keys rodando em http://localhost:${PORT}`));
+// Ao receber o aviso de desligar (acontece em todo deploy do Render), grava o que estiver pendente
+async function shutdown() {
+  try { clearTimeout(remoteTimer); remoteTimer = null; await flushRemote(); } catch (_) {}
+  process.exit(0);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
+loadDb().then(() => {
+  server.listen(PORT, () => console.log(`Kawan Keys rodando em http://localhost:${PORT} — armazenamento: ${USE_REMOTE ? 'Upstash (permanente)' : 'arquivo local (TEMPORÁRIO no Render grátis)'} — ${db.keys.length} keys`));
+}).catch((e) => { console.error(e); process.exit(1); });
