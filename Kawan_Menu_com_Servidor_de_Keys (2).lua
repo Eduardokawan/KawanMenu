@@ -271,13 +271,17 @@ end
 
 local uiScale = new("UIScale", {Scale = 1}, gui)
 local userScale = 1
-local WIN_W, WIN_H, SIDE_W, TOP_H = 700, 470, 172, 46
+local WIN_W, WIN_H, SIDE_W, TOP_H = 700, 470, (UIS.TouchEnabled and 112 or 172), 46
 local function refreshScale()
     local cam = workspace.CurrentCamera
     local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
-    local mobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
-    local padX, padY = mobile and 20 or 60, mobile and 24 or 60
-    uiScale.Scale = math.min(1, vs.X / (WIN_W + padX), vs.Y / (WIN_H + padY)) * userScale
+    local mobile = UIS.TouchEnabled
+    if mobile then
+        -- No celular, a janela ocupa a tela útil em vez de reduzir tudo até ficar ilegível.
+        uiScale.Scale = math.clamp(userScale, 0.82, 1)
+    else
+        uiScale.Scale = math.min(1, vs.X / (WIN_W + 60), vs.Y / (WIN_H + 60)) * userScale
+    end
 end
 refreshScale()
 if workspace.CurrentCamera then
@@ -342,8 +346,11 @@ local main = new("CanvasGroup", {
     Size = UDim2.fromOffset(WIN_W, WIN_H), BorderSizePixel = 0, GroupTransparency = 1,
 })
 bg(main, "BackgroundColor3", "window")
-main.Visible = false 
+main.Visible = false
 main.Parent = gui
+if UIS.TouchEnabled then
+    main.Size = UDim2.new(1, -16, 1, -72)
+end
 corner(main, 10, 0)
 stroke(main, C.line, 1, 0.2)
 local winScale = new("UIScale", {Scale = 0.94}, main)
@@ -682,6 +689,26 @@ end)
 local content = new("Frame", {Size = UDim2.new(1, -SIDE_W, 1, -TOP_H), Position = UDim2.fromOffset(SIDE_W, TOP_H),
     BackgroundTransparency = 1}, main)
 
+local function updateMobileWindow()
+    if UIS.TouchEnabled then
+        main.Size = UDim2.new(1, -16, 1, -72)
+        SIDE_W = 112
+    else
+        main.Size = UDim2.fromOffset(WIN_W, WIN_H)
+        SIDE_W = 172
+    end
+    sidebar.Size = UDim2.new(0, SIDE_W, 1, 0)
+    topBar.Position = UDim2.fromOffset(SIDE_W, 0)
+    topBar.Size = UDim2.new(1, -SIDE_W, 0, TOP_H)
+    content.Position = UDim2.fromOffset(SIDE_W, TOP_H)
+    content.Size = UDim2.new(1, -SIDE_W, 1, -TOP_H)
+    refreshScale()
+end
+updateMobileWindow()
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateMobileWindow)
+end
+
 do
     local dragging, dragStart, startPos
     local function begin(input)
@@ -940,9 +967,13 @@ local function newPage(name, icon)
             PaddingRight = UDim.new(0, 14), PaddingBottom = UDim.new(0, 14)}, scroll)
 
         local cols = {}
-        for i = 1, 2 do
-            local col = new("Frame", {Size = UDim2.new(0.5, -6, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-                Position = UDim2.new(i == 1 and 0 or 0.5, i == 1 and 0 or 6, 0, 0), BackgroundTransparency = 1}, scroll)
+        local mobileLayout = UIS.TouchEnabled
+        local columnCount = mobileLayout and 1 or 2
+        for i = 1, columnCount do
+            local col = new("Frame", {Size = mobileLayout and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -6, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                Position = mobileLayout and UDim2.fromOffset(0, 0) or UDim2.new(i == 1 and 0 or 0.5, i == 1 and 0 or 6, 0, 0),
+                BackgroundTransparency = 1}, scroll)
             new("UIListLayout", {Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder}, col)
             cols[i] = col
         end
@@ -957,8 +988,13 @@ local function newPage(name, icon)
 
         local nextCol = 1
         function sub:Card(title, icon, colIndex)
-            local col = cols[colIndex or nextCol]
-            nextCol = nextCol % 2 + 1
+            local col
+            if mobileLayout then
+                col = cols[1]
+            else
+                col = cols[colIndex or nextCol]
+                nextCol = nextCol % 2 + 1
+            end
             local card = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
                 BorderSizePixel = 0}, col)
             bg(card, "BackgroundColor3", "card")
@@ -1816,6 +1852,29 @@ do
     aimCard:Dropdown("Parte do corpo:", {"Head", "Neck", "Chest", "Abdomen", "LeftArm", "RightArm", "LeftLeg", "RightLeg"}, 1,
         function(value) aimCfg.AimBodyPart = value end)
     aimCard:Note("A mira é assistência visual de câmera. Silent Aim e hitbox de dano exigem integração legítima com o sistema de armas e validação no servidor.")
+
+    -- Configurações experimentais de armas: armazenadas pelo menu, sem alterar
+    -- disparos de terceiros. Para efeito real, conecte-as ao código da arma.
+    local weaponCfg = {
+        RapidFire = false,
+        FireInterval = 0.12,
+        MagicBullet = false,
+        MagicBulletRange = 100,
+    }
+    local weaponCard = aimSub:Card("⚡ Configurações experimentais de armas", "⚡", 2)
+    weaponCard:Toggle("Tiro Rápido (configuração)", false, function(on)
+        weaponCfg.RapidFire = on
+    end)
+    weaponCard:Slider("Intervalo entre disparos (segundos x100)", 5, 100, 12, function(v)
+        weaponCfg.FireInterval = math.max(0.05, v / 100)
+    end)
+    weaponCard:Toggle("Bala Mágica (configuração)", false, function(on)
+        weaponCfg.MagicBullet = on
+    end)
+    weaponCard:Slider("Distância da Bala Mágica", 10, 500, 100, function(v)
+        weaponCfg.MagicBulletRange = v
+    end)
+    weaponCard:Note("Experimental: os valores ficam configurados no Kawan Menu, mas não modificam tiros nem redirecionam acertos. Isso depende do sistema de armas do jogo e de validação no servidor.")
 
     local espSub = P.Players:SubTab("👁 ESP")
     local espCard = espSub:Card("ESP de jogadores", "👁", 1)
